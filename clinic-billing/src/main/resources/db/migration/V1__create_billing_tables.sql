@@ -1,0 +1,21 @@
+V1__create_billing_tables.sql
+
+CREATE TABLE invoices (
+    id BIGSERIAL PRIMARY KEY,
+    clinic_id VARCHAR(50) NOT NULL,
+    invoice_number VARCHAR(50) NOT NULL,
+    patient_id BIGINT NOT NULL,
+    total_amount DECIMAL(10, 2) NOT NULL,
+    paid_amount DECIMAL(10, 2) NOT NULL DEFAULT 0,
+    invoice_date DATE NOT NULL,
+    due_date DATE,
+    status VARCHAR(20) NOT NULL DEFAULT 'DRAFT',
+    notes TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_clinic_patient ON invoices(clinic_id, patient_id);
+CREATE INDEX idx_clinic_status ON invoices(clinic_id, status);
+CREATE INDEX idx_invoice_number ON invoices(clinic_id, invoice_number);
+

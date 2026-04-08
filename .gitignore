@@ -1,0 +1,91 @@
+# Maven
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+.flattened-pom.xml
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+.m2/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+*.ids
+out/
+.DS_Store
+*.swp
+*.swo
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# Eclipse
+.classpath
+.project
+.settings/
+.sts4-cache/
+bin/
+
+# NetBeans
+/nbproject/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+# Gradle
+.gradle
+build/
+gradle-app.setting
+.gradletasknamecache
+
+# Java
+*.class
+*.log
+*.ctxt
+.mtj.tmp/
+
+# Package Files
+*.jar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Application secrets
+application-local.yml
+application-dev.yml
+.properties.local
+secrets/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+*.bak
+*.tmp
+*.temp
+*~
+
+# Build outputs
+dist/
+docs/_build/
+
