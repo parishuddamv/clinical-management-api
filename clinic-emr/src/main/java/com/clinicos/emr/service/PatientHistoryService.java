@@ -130,6 +130,60 @@ public class PatientHistoryService {
                 .map(this::mapDiagnosisToResponse);
     }
 
+    /**
+     * Get diagnosis by ID.
+     */
+    @Transactional(readOnly = true)
+    public DiagnosisResponse getDiagnosis(String clinicId, Long diagnosisId) {
+        Diagnosis diagnosis = diagnosisRepository.findByIdAndClinicId(diagnosisId, clinicId)
+                .orElseThrow(() -> new ResourceNotFoundException("Diagnosis not found: " + diagnosisId));
+        return mapDiagnosisToResponse(diagnosis);
+    }
+
+    /**
+     * Update a diagnosis.
+     */
+    @Transactional
+    public DiagnosisResponse updateDiagnosis(String clinicId, Long diagnosisId, AddDiagnosisRequest request) {
+        Diagnosis diagnosis = diagnosisRepository.findByIdAndClinicId(diagnosisId, clinicId)
+                .orElseThrow(() -> new ResourceNotFoundException("Diagnosis not found: " + diagnosisId));
+
+        if (request.getIcdCode() != null) diagnosis.setIcdCode(request.getIcdCode());
+        if (request.getDiagnosisName() != null) diagnosis.setDiagnosisName(request.getDiagnosisName());
+        if (request.getDiagnosisType() != null) diagnosis.setDiagnosisType(request.getDiagnosisType());
+        if (request.getSeverity() != null) diagnosis.setSeverity(request.getSeverity());
+        if (request.getOnsetDate() != null) diagnosis.setOnsetDate(request.getOnsetDate());
+        if (request.getResolutionDate() != null) diagnosis.setResolutionDate(request.getResolutionDate());
+        if (request.getIsChronic() != null) diagnosis.setIsChronic(request.getIsChronic());
+        if (request.getNotes() != null) diagnosis.setNotes(request.getNotes());
+
+        diagnosis = diagnosisRepository.save(diagnosis);
+        log.info("Updated diagnosis: {} for patient: {}", diagnosis.getDiagnosisName(), diagnosis.getPatientId());
+        return mapDiagnosisToResponse(diagnosis);
+    }
+
+    /**
+     * Delete a diagnosis.
+     */
+    @Transactional
+    public void deleteDiagnosis(String clinicId, Long diagnosisId) {
+        Diagnosis diagnosis = diagnosisRepository.findByIdAndClinicId(diagnosisId, clinicId)
+                .orElseThrow(() -> new ResourceNotFoundException("Diagnosis not found: " + diagnosisId));
+        diagnosisRepository.delete(diagnosis);
+        log.info("Deleted diagnosis: {}", diagnosisId);
+    }
+
+    /**
+     * Get chronic conditions for a patient.
+     */
+    @Transactional(readOnly = true)
+    public List<DiagnosisResponse> getChronicConditions(String clinicId, Long patientId) {
+        return diagnosisRepository.findChronicDiagnoses(clinicId, patientId)
+                .stream()
+                .map(this::mapDiagnosisToResponse)
+                .collect(Collectors.toList());
+    }
+
     private PatientHistoryResponse.VisitSummary mapToVisitSummary(PatientVisit visit) {
         return PatientHistoryResponse.VisitSummary.builder()
                 .visitId(visit.getId())
