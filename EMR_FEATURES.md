@@ -94,14 +94,44 @@ GET    /api/v1/emr/prescriptions/{id}           - Get prescription
 POST   /api/v1/emr/prescriptions/{id}/finalize  - Finalize prescription
 POST   /api/v1/emr/prescriptions/{id}/deliver   - Deliver prescription
 GET    /api/v1/emr/prescriptions/patient/{id}   - Patient prescriptions
+GET    /api/v1/emr/prescriptions                - List all prescriptions
 GET    /api/v1/emr/prescriptions/drugs/search?q= - Drug search
 ```
 
 ### Diagnoses
 ```
 POST   /api/v1/emr/diagnoses                    - Add diagnosis
+GET    /api/v1/emr/diagnoses/{id}               - Get diagnosis by ID
+PUT    /api/v1/emr/diagnoses/{id}               - Update diagnosis
+DELETE /api/v1/emr/diagnoses/{id}               - Delete diagnosis
 GET    /api/v1/emr/visits/{id}/diagnoses        - Visit diagnoses
 GET    /api/v1/emr/patients/{id}/diagnoses      - Patient diagnoses
+GET    /api/v1/emr/patients/{id}/chronic        - Chronic conditions
+```
+
+### Vital Signs
+```
+POST   /api/v1/emr/vitals                       - Record vital signs
+GET    /api/v1/emr/vitals/{id}                  - Get vital signs by ID
+PUT    /api/v1/emr/vitals/{id}                  - Update vital signs
+DELETE /api/v1/emr/vitals/{id}                  - Delete vital signs
+GET    /api/v1/emr/vitals/patient/{id}          - Patient vital signs history
+GET    /api/v1/emr/vitals/patient/{id}/latest   - Latest vital signs
+GET    /api/v1/emr/vitals/visit/{id}            - Vital signs for visit
+GET    /api/v1/emr/vitals/patient/{id}/range    - Vitals in date range
+```
+
+### Allergies
+```
+POST   /api/v1/emr/allergies                    - Create allergy record
+GET    /api/v1/emr/allergies/{id}               - Get allergy by ID
+PUT    /api/v1/emr/allergies/{id}               - Update allergy
+DELETE /api/v1/emr/allergies/{id}               - Delete allergy
+PUT    /api/v1/emr/allergies/{id}/deactivate    - Deactivate allergy
+GET    /api/v1/emr/allergies/patient/{id}       - Patient allergies
+GET    /api/v1/emr/allergies/patient/{id}/active - Active allergies
+GET    /api/v1/emr/allergies/patient/{id}/drugs  - Drug allergies
+GET    /api/v1/emr/allergies/patient/{id}/type/{type} - Allergies by type
 ```
 
 ### Lab Reports
@@ -110,6 +140,7 @@ POST   /api/v1/emr/lab-reports                  - Create lab report
 GET    /api/v1/emr/lab-reports/{id}             - Get lab report
 PUT    /api/v1/emr/lab-reports/{id}             - Update lab report
 GET    /api/v1/emr/lab-reports/patient/{id}     - Patient lab reports
+GET    /api/v1/emr/lab-reports                  - List all lab reports
 ```
 
 ### Files
@@ -117,13 +148,14 @@ GET    /api/v1/emr/lab-reports/patient/{id}     - Patient lab reports
 POST   /api/v1/emr/files/upload         - Upload file
 GET    /api/v1/emr/files/{id}           - Get file info
 GET    /api/v1/emr/files/{id}/download  - Download file
-DELETE /api/v1/emr/files/{id}           - Delete file
+DELETE /api/v1/emr/files/{id}           - Delete file (soft delete)
 GET    /api/v1/emr/files/patient/{id}   - Patient files
+GET    /api/v1/emr/files/category/{cat} - Files by category
 ```
 
 ### Patient History
 ```
-GET    /api/v1/emr/patients/{id}/history - Complete patient history
+GET    /api/v1/emr/patients/{id}/history - Complete patient history timeline
 ```
 
 ## Database Tables
