@@ -34,6 +34,7 @@ public class Invoice extends BaseEntity {
     private BigDecimal totalAmount;
 
     @Column(nullable = false)
+    @Builder.Default
     private BigDecimal paidAmount = BigDecimal.ZERO;
 
     @Column(name = "invoice_date", nullable = false)
@@ -44,6 +45,7 @@ public class Invoice extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    @Builder.Default
     private InvoiceStatus status = InvoiceStatus.DRAFT;
 
     @Column(columnDefinition = "TEXT")

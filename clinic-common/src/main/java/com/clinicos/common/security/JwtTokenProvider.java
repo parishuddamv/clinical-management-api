@@ -21,7 +21,7 @@ import java.util.Map;
 @Component
 public class JwtTokenProvider {
 
-    @Value("${app.jwt.secret:your-secret-key-min-32-chars-long-for-security}")
+    @Value("${app.jwt.secret:your-secret-key-minimum-64-chars-for-hs512-algorithm-security-requirement}")
     private String jwtSecret;
 
     @Value("${app.jwt.expiration:86400000}")

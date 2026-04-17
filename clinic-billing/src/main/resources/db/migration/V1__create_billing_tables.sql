@@ -1,4 +1,4 @@
-V1__create_billing_tables.sql
+-- V1__create_billing_tables.sql
 
 CREATE TABLE invoices (
     id BIGSERIAL PRIMARY KEY,
@@ -15,7 +15,7 @@ CREATE TABLE invoices (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_clinic_patient ON invoices(clinic_id, patient_id);
-CREATE INDEX idx_clinic_status ON invoices(clinic_id, status);
-CREATE INDEX idx_invoice_number ON invoices(clinic_id, invoice_number);
+CREATE INDEX idx_invoices_clinic_patient ON invoices(clinic_id, patient_id);
+CREATE INDEX idx_invoices_clinic_status ON invoices(clinic_id, status);
+CREATE INDEX idx_invoices_invoice_number ON invoices(clinic_id, invoice_number);
 

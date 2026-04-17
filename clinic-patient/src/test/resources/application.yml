@@ -1,0 +1,38 @@
+spring:
+  application:
+    name: clinic-patient-test
+  datasource:
+    url: jdbc:h2:mem:testdb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+    show-sql: false
+    open-in-view: false
+  flyway:
+    enabled: false
+
+app:
+  jwt:
+    secret: test-secret-key-for-testing-purposes-only-must-be-at-least-32-characters
+    expiration: 86400000
+  google:
+    clientId: test-client-id
+    clientSecret: test-client-secret
+    redirectUrl: http://localhost/callback
+  security:
+    cors:
+      allowed-origins: http://localhost:3000
+      allowed-methods: GET,POST,PUT,DELETE,OPTIONS
+      max-age: 3600
+
+logging:
+  level:
+    root: WARN
+    com.clinicos: WARN
+

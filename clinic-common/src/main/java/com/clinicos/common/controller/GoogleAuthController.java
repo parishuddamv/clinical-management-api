@@ -31,15 +31,27 @@ public class GoogleAuthController {
     public ResponseEntity<ApiResponse<GoogleAuthResponse>> authenticateWithGoogle(
             @RequestBody GoogleAuthRequest request) {
 
-        log.info("Received Google authentication request");
+        log.info("Received Google authentication request - idToken present: {}, clinicId: {}", 
+                request.getIdToken() != null && !request.getIdToken().isEmpty(),
+                request.getClinicId());
 
-        GoogleAuthResponse response = googleAuthService.authenticateWithGoogle(request);
+        try {
+            GoogleAuthResponse response = googleAuthService.authenticateWithGoogle(request);
 
-        return ResponseEntity.status(HttpStatus.OK)
-                .body(ApiResponse.success(
-                        "Google authentication successful",
-                        response
-                ));
+            return ResponseEntity.status(HttpStatus.OK)
+                    .body(ApiResponse.success(
+                            "Google authentication successful",
+                            response
+                    ));
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid request: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error(e.getMessage()));
+        } catch (Exception e) {
+            log.error("Authentication failed: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Authentication failed: " + e.getMessage()));
+        }
     }
 
     /**

@@ -31,6 +31,7 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
     out-of-order: false
+    table: flyway_schema_history_patient
 
 server:
   port: ${SERVER_PORT:8081}
@@ -47,7 +48,7 @@ server:
 
 app:
   jwt:
-    secret: ${JWT_SECRET:}
+    secret: ${JWT_SECRET:your-secret-key-minimum-64-chars-for-hs512-algorithm-security-requirement}
     expiration: ${JWT_EXPIRATION:86400000}
   google:
     clientId: ${GOOGLE_CLIENT_ID:}

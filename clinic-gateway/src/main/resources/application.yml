@@ -1,6 +1,14 @@
 spring:
   application:
     name: clinic-gateway
+  main:
+    web-application-type: reactive
+    allow-bean-definition-overriding: true
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:local}
   cloud:
@@ -30,7 +38,7 @@ server:
 
 app:
   jwt:
-    secret: ${JWT_SECRET:}
+    secret: ${JWT_SECRET:your-secret-key-minimum-64-chars-for-hs512-algorithm-security-requirement}
     expiration: ${JWT_EXPIRATION:86400000}
   google:
     clientId: ${GOOGLE_CLIENT_ID:}
@@ -41,6 +49,20 @@ app:
       allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:8080,http://localhost:8081}
       allowed-methods: GET,POST,PUT,DELETE,OPTIONS,PATCH
       max-age: 3600
+
+# Service URLs - defaults to localhost for local development
+# Override with environment variables for Docker deployment
+service:
+  patient:
+    url: ${SERVICE_PATIENT_URL:http://localhost:8081}
+  appointment:
+    url: ${SERVICE_APPOINTMENT_URL:http://localhost:8082}
+  followup:
+    url: ${SERVICE_FOLLOWUP_URL:http://localhost:8083}
+  notification:
+    url: ${SERVICE_NOTIFICATION_URL:http://localhost:8084}
+  billing:
+    url: ${SERVICE_BILLING_URL:http://localhost:8085}
 
 logging:
   level:

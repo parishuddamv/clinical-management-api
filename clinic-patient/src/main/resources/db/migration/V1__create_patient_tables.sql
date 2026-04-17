@@ -1,4 +1,4 @@
-V1__create_patient_tables.sql
+-- V1__create_patient_tables.sql
 
 -- Create patients table for clinic-patient multi-tenant isolation
 CREATE TABLE patients (
@@ -34,8 +34,8 @@ CREATE TABLE patient_tags (
 );
 
 -- Create indexes for tag queries
-CREATE INDEX idx_clinic_patient ON patient_tags(clinic_id, patient_id);
-CREATE INDEX idx_clinic_tag ON patient_tags(clinic_id, tag);
+CREATE INDEX idx_patient_tags_clinic_patient ON patient_tags(clinic_id, patient_id);
+CREATE INDEX idx_patient_tags_clinic_tag ON patient_tags(clinic_id, tag);
 
 -- Add constraint for unique tags per patient per clinic
 ALTER TABLE patient_tags ADD CONSTRAINT unique_clinic_patient_tag UNIQUE (clinic_id, patient_id, tag);

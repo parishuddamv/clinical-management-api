@@ -36,9 +36,20 @@ public class GoogleAuthService {
     public GoogleAuthResponse authenticateWithGoogle(GoogleAuthRequest request) {
         try {
             log.info("Authenticating user with Google ID Token");
+            
+            // Validate request
+            if (request == null) {
+                throw new IllegalArgumentException("Request body is null");
+            }
+            
+            String idToken = request.getIdToken();
+            if (idToken == null || idToken.trim().isEmpty()) {
+                log.error("idToken is null or empty. Request received: clinicId={}", request.getClinicId());
+                throw new IllegalArgumentException("idToken is required. Please send {\"idToken\": \"<your-google-token>\", \"clinicId\": \"CLINIC_001\"}");
+            }
 
             // Decode Google ID Token
-            GoogleUserInfo googleUser = decodeGoogleToken(request.getIdToken());
+            GoogleUserInfo googleUser = decodeGoogleToken(idToken);
             log.info("Google authentication successful for user: {}", googleUser.getEmail());
 
             // Assign clinic (default or from request)

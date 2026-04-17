@@ -27,7 +27,7 @@ import java.util.List;
 @EnableWebSecurity
 @EnableMethodSecurity
 @RequiredArgsConstructor
-public class SecurityConfig {
+public class CommonSecurityConfig {
 
     private final JwtTokenProvider jwtTokenProvider;
 
@@ -48,9 +48,25 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         // Split comma-separated origins from environment variable
-        configuration.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With", "X-Tenant-ID"));
+        // Use allowedOriginPatterns when allowCredentials is true
+        List<String> origins = Arrays.asList(allowedOrigins.split(","));
+        origins.forEach(origin -> configuration.addAllowedOriginPattern(origin.trim()));
+        
+        // Allow all standard HTTP methods
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"));
+        
+        // Allow all headers - important for Authorization header
+        configuration.setAllowedHeaders(List.of("*"));
+        
+        // Expose headers that frontend might need
+        configuration.setExposedHeaders(List.of(
+            "Authorization", 
+            "Content-Type", 
+            "X-Total-Count",
+            "Access-Control-Allow-Origin",
+            "Access-Control-Allow-Credentials"
+        ));
+        
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
 

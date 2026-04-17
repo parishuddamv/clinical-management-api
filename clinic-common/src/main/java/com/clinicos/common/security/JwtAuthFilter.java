@@ -41,9 +41,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 // Set tenant context for current request
                 TenantContext.setClinicId(clinicId);
 
-                // Set Spring Security authentication
+                // Set Spring Security authentication with clinicId stored in details
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(username, null, null);
+                authentication.setDetails(clinicId);
                 SecurityContextHolder.getContext().setAuthentication(authentication);
 
                 log.debug("Authenticated user: {} with clinic: {}", username, clinicId);

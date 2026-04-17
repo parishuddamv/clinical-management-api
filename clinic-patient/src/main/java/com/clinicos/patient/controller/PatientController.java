@@ -1,6 +1,7 @@
 package com.clinicos.patient.controller;
 
 import com.clinicos.common.dto.ApiResponse;
+import com.clinicos.common.entity.TenantContext;
 import com.clinicos.patient.dto.*;
 import com.clinicos.patient.service.PatientService;
 import jakarta.validation.Valid;
@@ -85,7 +86,7 @@ public class PatientController {
      */
     @GetMapping("/search")
     public ResponseEntity<ApiResponse<Page<PatientSummaryResponse>>> searchPatients(
-            @RequestParam String q,
+            @RequestParam(required = false, defaultValue = "") String q,
             Pageable pageable,
             Authentication authentication) {
         String clinicId = getClinicIdFromToken(authentication);
@@ -123,13 +124,14 @@ public class PatientController {
     }
 
     /**
-     * Extract clinic ID from JWT authentication (from Security context)
+     * Extract clinic ID from JWT authentication details (set by JwtAuthFilter).
+     * Falls back to TenantContext if details is not a String.
      */
     private String getClinicIdFromToken(Authentication authentication) {
-        // In a real scenario, clinic_id should be extracted from the JWT token
-        // For now, this is a placeholder - the actual implementation would
-        // extract it from SecurityContext or a custom principal
-        return (String) authentication.getDetails();
+        if (authentication != null && authentication.getDetails() instanceof String) {
+            return (String) authentication.getDetails();
+        }
+        return TenantContext.getClinicId();
     }
 
     /**

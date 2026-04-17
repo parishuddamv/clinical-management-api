@@ -31,6 +31,7 @@ public class FollowUp extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    @Builder.Default
     private FollowUpStatus status = FollowUpStatus.PENDING;
 
     @Column(columnDefinition = "TEXT")
