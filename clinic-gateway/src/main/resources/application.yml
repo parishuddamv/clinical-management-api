@@ -63,6 +63,8 @@ service:
     url: ${SERVICE_NOTIFICATION_URL:http://localhost:8084}
   billing:
     url: ${SERVICE_BILLING_URL:http://localhost:8085}
+  emr:
+    url: ${SERVICE_EMR_URL:http://localhost:8086}
 
 logging:
   level:

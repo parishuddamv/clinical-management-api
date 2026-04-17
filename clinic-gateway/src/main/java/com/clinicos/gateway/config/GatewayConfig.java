@@ -36,6 +36,9 @@ public class GatewayConfig {
     @Value("${service.billing.url:http://localhost:8085}")
     private String billingServiceUrl;
 
+    @Value("${service.emr.url:http://localhost:8086}")
+    private String emrServiceUrl;
+
     @Bean
     public RouteLocator routeLocator(RouteLocatorBuilder builder) {
         log.info("Configuring gateway routes:");
@@ -44,6 +47,7 @@ public class GatewayConfig {
         log.info("  Follow-up Service: {}", followupServiceUrl);
         log.info("  Notification Service: {}", notificationServiceUrl);
         log.info("  Billing Service: {}", billingServiceUrl);
+        log.info("  EMR Service: {}", emrServiceUrl);
 
         return builder.routes()
                 // Patient Service Routes
@@ -75,6 +79,12 @@ public class GatewayConfig {
                         .path("/api/v1/billing/**")
                         .filters(f -> f.filter(jwtGatewayFilterFactory.apply(new JwtGatewayFilterFactory.Config())))
                         .uri(billingServiceUrl))
+
+                // EMR Service Routes (Electronic Medical Records & E-Prescription)
+                .route("emr-service", r -> r
+                        .path("/api/v1/emr/**")
+                        .filters(f -> f.filter(jwtGatewayFilterFactory.apply(new JwtGatewayFilterFactory.Config())))
+                        .uri(emrServiceUrl))
 
                 // Auth Service Routes (no JWT filter)
                 .route("auth-service", r -> r

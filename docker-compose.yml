@@ -188,6 +188,41 @@ services:
       retries: 3
     restart: unless-stopped
 
+  # Clinic EMR Service (Electronic Medical Records)
+  clinic-emr:
+    build:
+      context: ./clinic-emr
+      dockerfile: Dockerfile
+    container_name: clinic-emr-service
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local}
+      DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-clinicos_db}
+      DB_USERNAME: ${DB_USERNAME:-clinicos_user}
+      DB_PASSWORD: ${DB_PASSWORD:-clinicos_password}
+      DB_POOL_SIZE: ${DB_POOL_SIZE:-5}
+      SERVER_PORT: 8086
+      JWT_SECRET: ${JWT_SECRET:-your-secret-key-minimum-64-chars-for-hs512-algorithm-security-requirement}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+      SERVICE_NOTIFICATION_URL: http://clinic-notification-service:8084
+      LOG_LEVEL: ${LOG_LEVEL:-DEBUG}
+      LOG_LEVEL_CLINICOS: ${LOG_LEVEL_CLINICOS:-DEBUG}
+    ports:
+      - "8086:8086"
+    volumes:
+      - emr-uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - clinicos-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8086/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
   # Clinic API Gateway
   clinic-gateway:
     build:
@@ -211,6 +246,7 @@ services:
       SERVICE_FOLLOWUP_URL: http://clinic-followup-service:8083
       SERVICE_NOTIFICATION_URL: http://clinic-notification-service:8084
       SERVICE_BILLING_URL: http://clinic-billing-service:8085
+      SERVICE_EMR_URL: http://clinic-emr-service:8086
     ports:
       - "8080:8080"
     depends_on:
@@ -219,6 +255,7 @@ services:
       - clinic-followup
       - clinic-notification
       - clinic-billing
+      - clinic-emr
     networks:
       - clinicos-network
     healthcheck:
@@ -230,6 +267,8 @@ services:
 
 volumes:
   clinicos-db-data:
+    driver: local
+  emr-uploads:
     driver: local
 
 networks:

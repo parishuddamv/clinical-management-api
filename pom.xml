@@ -33,6 +33,7 @@
         <module>clinic-followup</module>
         <module>clinic-notification</module>
         <module>clinic-billing</module>
+        <module>clinic-emr</module>
         <module>clinic-gateway</module>
     </modules>
 
