@@ -9,8 +9,11 @@ import com.clinicos.patient.repository.PatientRepository;
 import com.clinicos.patient.repository.PatientTagRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -64,8 +67,10 @@ public class PatientService {
 
     /**
      * Get patient by ID (with clinic isolation)
+     * Cached for 1 hour for performance
      */
     @Transactional(readOnly = true)
+    @Cacheable(value = "patients", key = "#clinicId + ':' + #patientId", unless = "#result == null")
     public PatientResponse getPatientById(String clinicId, Long patientId) {
         Patient patient = patientRepository.findByIdAndClinicId(patientId, clinicId)
                 .orElseThrow(() -> new PatientNotFoundException(patientId));
@@ -80,8 +85,10 @@ public class PatientService {
 
     /**
      * Update patient information (partial update)
+     * Invalidates patient cache after update
      */
     @Transactional
+    @CacheEvict(value = "patients", key = "#clinicId + ':' + #patientId")
     public PatientResponse updatePatient(String clinicId, Long patientId, UpdatePatientRequest request) {
         log.info("Updating patient: {} for clinic: {}", patientId, clinicId);
 
@@ -121,8 +128,10 @@ public class PatientService {
 
     /**
      * Search patients by name or phone with pagination
+     * Results cached for 15 minutes for performance
      */
     @Transactional(readOnly = true)
+    @Cacheable(value = "patientSearch", key = "#clinicId + ':' + #query + ':' + #pageable.pageNumber + ':' + #pageable.pageSize", unless = "#result == null || #result.isEmpty()")
     public Page<PatientSummaryResponse> searchPatients(String clinicId, String query, Pageable pageable) {
         log.info("Searching patients for clinic: {} with query: {}", clinicId, query);
 
@@ -146,8 +155,10 @@ public class PatientService {
 
     /**
      * Soft delete patient by setting isActive to false
+     * Invalidates patient cache after deletion
      */
     @Transactional
+    @CacheEvict(value = {"patients", "patientSearch"}, allEntries = true)
     public void softDeletePatient(String clinicId, Long patientId) {
         log.info("Soft deleting patient: {} for clinic: {}", patientId, clinicId);
 

@@ -1,10 +1,11 @@
-﻿version: '3.9'
+version: '3.9'
 
 services:
   # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
     container_name: clinicos-postgres
+    mem_limit: 512m
     environment:
       POSTGRES_USER: ${DB_USERNAME:-clinicos_user}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-clinicos_password}
@@ -23,6 +24,103 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=256MB"
+      - "-c"
+      - "effective_cache_size=1GB"
+      - "-c"
+      - "log_min_duration_statement=500"
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: clinicos-redis
+    mem_limit: 128m
+    ports:
+      - "16379:6379"
+    volumes:
+      - clinicos-redis-data:/data
+    networks:
+      - clinicos-network
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Kafka Broker (KRaft mode - no ZooKeeper needed)
+  kafka:
+    image: apache/kafka:3.8.0
+    container_name: clinicos-kafka
+    mem_limit: 768m
+    ports:
+      - "19092:19092"
+    environment:
+      KAFKA_HEAP_OPTS: "-Xmx384m -Xms256m"
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:29093,EXTERNAL://0.0.0.0:19092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:19092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_NUM_PARTITIONS: 6
+      KAFKA_LOG_RETENTION_HOURS: 168
+    volumes:
+      - clinicos-kafka-data:/var/lib/kafka/data
+    networks:
+      - clinicos-network
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+    restart: unless-stopped
+
+  # Prometheus Metrics
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: clinicos-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - clinicos-prometheus-data:/prometheus
+    networks:
+      - clinicos-network
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=30d"
+    restart: unless-stopped
+
+  # Grafana Dashboard
+  grafana:
+    image: grafana/grafana:latest
+    container_name: clinicos-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_INSTALL_PLUGINS: "redis-datasource"
+    volumes:
+      - clinicos-grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    networks:
+      - clinicos-network
+    depends_on:
+      - prometheus
+    restart: unless-stopped
 
   # Clinic Patient Service
   clinic-patient:
@@ -30,18 +128,25 @@ services:
       context: ./clinic-patient
       dockerfile: Dockerfile
     container_name: clinic-patient-service
+    mem_limit: 512m
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local}
       DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-clinicos_db}
       DB_USERNAME: ${DB_USERNAME:-clinicos_user}
       DB_PASSWORD: ${DB_PASSWORD:-clinicos_password}
-      DB_POOL_SIZE: ${DB_POOL_SIZE:-5}
+      DB_POOL_SIZE: ${DB_POOL_SIZE:-20}
+      DB_MIN_IDLE: ${DB_MIN_IDLE:-5}
+      REDIS_ENABLED: ${REDIS_ENABLED:-true}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      CACHE_TYPE: redis
       SERVER_PORT: 8081
       JWT_SECRET: ${JWT_SECRET:-your-secret-key-minimum-64-chars-for-hs512-algorithm-security-requirement}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
-      LOG_LEVEL: ${LOG_LEVEL:-DEBUG}
-      LOG_LEVEL_CLINICOS: ${LOG_LEVEL_CLINICOS:-DEBUG}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_LEVEL_CLINICOS: ${LOG_LEVEL_CLINICOS:-INFO}
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--XX:MaxRAMPercentage=75.0 -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError}
     ports:
       - "8081:8081"
     depends_on:
@@ -62,6 +167,7 @@ services:
       context: ./clinic-appointment
       dockerfile: Dockerfile
     container_name: clinic-appointment-service
+    mem_limit: 448m
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local}
       DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-clinicos_db}
@@ -72,8 +178,9 @@ services:
       JWT_SECRET: ${JWT_SECRET:-your-secret-key-minimum-64-chars-for-hs512-algorithm-security-requirement}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
-      LOG_LEVEL: ${LOG_LEVEL:-DEBUG}
-      LOG_LEVEL_CLINICOS: ${LOG_LEVEL_CLINICOS:-DEBUG}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_LEVEL_CLINICOS: ${LOG_LEVEL_CLINICOS:-INFO}
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--XX:MaxRAMPercentage=75.0 -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError}
     ports:
       - "8082:8082"
     depends_on:
@@ -94,6 +201,7 @@ services:
       context: ./clinic-followup
       dockerfile: Dockerfile
     container_name: clinic-followup-service
+    mem_limit: 448m
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local}
       DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-clinicos_db}
@@ -104,8 +212,9 @@ services:
       JWT_SECRET: ${JWT_SECRET:-your-secret-key-minimum-64-chars-for-hs512-algorithm-security-requirement}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
-      LOG_LEVEL: ${LOG_LEVEL:-DEBUG}
-      LOG_LEVEL_CLINICOS: ${LOG_LEVEL_CLINICOS:-DEBUG}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_LEVEL_CLINICOS: ${LOG_LEVEL_CLINICOS:-INFO}
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--XX:MaxRAMPercentage=75.0 -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError}
     ports:
       - "8083:8083"
     depends_on:
@@ -126,6 +235,7 @@ services:
       context: ./clinic-notification
       dockerfile: Dockerfile
     container_name: clinic-notification-service
+    mem_limit: 512m
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local}
       DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-clinicos_db}
@@ -140,12 +250,18 @@ services:
       MAIL_PORT: ${MAIL_PORT:-587}
       MAIL_USERNAME: ${MAIL_USERNAME}
       MAIL_PASSWORD: ${MAIL_PASSWORD}
-      LOG_LEVEL: ${LOG_LEVEL:-DEBUG}
-      LOG_LEVEL_CLINICOS: ${LOG_LEVEL_CLINICOS:-DEBUG}
+      KAFKA_ENABLED: ${KAFKA_ENABLED:-true}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_TOPIC_NOTIFICATIONS: clinicos.notifications
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--XX:MaxRAMPercentage=75.0 -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_LEVEL_CLINICOS: ${LOG_LEVEL_CLINICOS:-INFO}
     ports:
       - "8084:8084"
     depends_on:
       postgres:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
     networks:
       - clinicos-network
@@ -162,6 +278,7 @@ services:
       context: ./clinic-billing
       dockerfile: Dockerfile
     container_name: clinic-billing-service
+    mem_limit: 448m
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local}
       DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-clinicos_db}
@@ -172,8 +289,9 @@ services:
       JWT_SECRET: ${JWT_SECRET:-your-secret-key-minimum-64-chars-for-hs512-algorithm-security-requirement}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
-      LOG_LEVEL: ${LOG_LEVEL:-DEBUG}
-      LOG_LEVEL_CLINICOS: ${LOG_LEVEL_CLINICOS:-DEBUG}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_LEVEL_CLINICOS: ${LOG_LEVEL_CLINICOS:-INFO}
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--XX:MaxRAMPercentage=75.0 -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError}
     ports:
       - "8085:8085"
     depends_on:
@@ -194,6 +312,7 @@ services:
       context: ./clinic-emr
       dockerfile: Dockerfile
     container_name: clinic-emr-service
+    mem_limit: 512m
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local}
       DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-clinicos_db}
@@ -205,8 +324,9 @@ services:
       JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
       SERVICE_NOTIFICATION_URL: http://clinic-notification-service:8084
-      LOG_LEVEL: ${LOG_LEVEL:-DEBUG}
-      LOG_LEVEL_CLINICOS: ${LOG_LEVEL_CLINICOS:-DEBUG}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_LEVEL_CLINICOS: ${LOG_LEVEL_CLINICOS:-INFO}
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--XX:MaxRAMPercentage=75.0 -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError}
     ports:
       - "8086:8086"
     volumes:
@@ -223,14 +343,86 @@ services:
       retries: 3
     restart: unless-stopped
 
+  # Clinic Staff Service (Multi-Doctor/Staff Management)
+  clinic-staff:
+    build:
+      context: ./clinic-staff
+      dockerfile: Dockerfile
+    container_name: clinic-staff-service
+    mem_limit: 448m
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local}
+      DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-clinicos_db}
+      DB_USERNAME: ${DB_USERNAME:-clinicos_user}
+      DB_PASSWORD: ${DB_PASSWORD:-clinicos_password}
+      DB_POOL_SIZE: ${DB_POOL_SIZE:-5}
+      SERVER_PORT: 8087
+      JWT_SECRET: ${JWT_SECRET:-your-secret-key-minimum-64-chars-for-hs512-algorithm-security-requirement}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_LEVEL_CLINICOS: ${LOG_LEVEL_CLINICOS:-INFO}
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--XX:MaxRAMPercentage=75.0 -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError}
+    ports:
+      - "8087:8087"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - clinicos-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8087/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # Clinic Feedback Service (Patient Reviews & Feedback)
+  clinic-feedback:
+    build:
+      context: ./clinic-feedback
+      dockerfile: Dockerfile
+    container_name: clinic-feedback-service
+    mem_limit: 448m
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local}
+      DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-clinicos_db}
+      DB_USERNAME: ${DB_USERNAME:-clinicos_user}
+      DB_PASSWORD: ${DB_PASSWORD:-clinicos_password}
+      DB_POOL_SIZE: ${DB_POOL_SIZE:-5}
+      SERVER_PORT: 8088
+      JWT_SECRET: ${JWT_SECRET:-your-secret-key-minimum-64-chars-for-hs512-algorithm-security-requirement}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_LEVEL_CLINICOS: ${LOG_LEVEL_CLINICOS:-INFO}
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--XX:MaxRAMPercentage=75.0 -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError}
+    ports:
+      - "8088:8088"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - clinicos-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8088/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
   # Clinic API Gateway
   clinic-gateway:
     build:
       context: ./clinic-gateway
       dockerfile: Dockerfile
     container_name: clinic-gateway-service
+    mem_limit: 512m
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local}
+      DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-clinicos_db}
+      DB_USERNAME: ${DB_USERNAME:-clinicos_user}
+      DB_PASSWORD: ${DB_PASSWORD:-clinicos_password}
       SERVER_PORT: 8080
       JWT_SECRET: ${JWT_SECRET:-your-secret-key-minimum-64-chars-for-hs512-algorithm-security-requirement}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
@@ -238,8 +430,8 @@ services:
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
       GOOGLE_REDIRECT_URL: ${GOOGLE_REDIRECT_URL:-http://localhost:8080/api/v1/auth/google/callback}
-      LOG_LEVEL: ${LOG_LEVEL:-DEBUG}
-      LOG_LEVEL_CLINICOS: ${LOG_LEVEL_CLINICOS:-DEBUG}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_LEVEL_CLINICOS: ${LOG_LEVEL_CLINICOS:-INFO}
       # Service URLs for Docker networking
       SERVICE_PATIENT_URL: http://clinic-patient-service:8081
       SERVICE_APPOINTMENT_URL: http://clinic-appointment-service:8082
@@ -247,6 +439,8 @@ services:
       SERVICE_NOTIFICATION_URL: http://clinic-notification-service:8084
       SERVICE_BILLING_URL: http://clinic-billing-service:8085
       SERVICE_EMR_URL: http://clinic-emr-service:8086
+      SERVICE_STAFF_URL: http://clinic-staff-service:8087
+      SERVICE_FEEDBACK_URL: http://clinic-feedback-service:8088
     ports:
       - "8080:8080"
     depends_on:
@@ -256,6 +450,8 @@ services:
       - clinic-notification
       - clinic-billing
       - clinic-emr
+      - clinic-staff
+      - clinic-feedback
     networks:
       - clinicos-network
     healthcheck:
@@ -267,6 +463,14 @@ services:
 
 volumes:
   clinicos-db-data:
+    driver: local
+  clinicos-kafka-data:
+    driver: local
+  clinicos-redis-data:
+    driver: local
+  clinicos-prometheus-data:
+    driver: local
+  clinicos-grafana-data:
     driver: local
   emr-uploads:
     driver: local

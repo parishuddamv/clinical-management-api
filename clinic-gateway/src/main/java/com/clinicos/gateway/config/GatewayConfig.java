@@ -39,6 +39,12 @@ public class GatewayConfig {
     @Value("${service.emr.url:http://localhost:8086}")
     private String emrServiceUrl;
 
+    @Value("${service.staff.url:http://localhost:8087}")
+    private String staffServiceUrl;
+
+    @Value("${service.feedback.url:http://localhost:8088}")
+    private String feedbackServiceUrl;
+
     @Bean
     public RouteLocator routeLocator(RouteLocatorBuilder builder) {
         log.info("Configuring gateway routes:");
@@ -48,8 +54,13 @@ public class GatewayConfig {
         log.info("  Notification Service: {}", notificationServiceUrl);
         log.info("  Billing Service: {}", billingServiceUrl);
         log.info("  EMR Service: {}", emrServiceUrl);
+        log.info("  Staff Service: {}", staffServiceUrl);
+        log.info("  Feedback Service: {}", feedbackServiceUrl);
 
         return builder.routes()
+                // Authentication Service Routes handled by AuthHandler (via RouterFunction)
+                // See AuthRouterConfig.java for auth endpoint definitions
+
                 // Patient Service Routes
                 .route("patient-service", r -> r
                         .path("/api/v1/patients/**")
@@ -86,17 +97,24 @@ public class GatewayConfig {
                         .filters(f -> f.filter(jwtGatewayFilterFactory.apply(new JwtGatewayFilterFactory.Config())))
                         .uri(emrServiceUrl))
 
-                // Auth Service Routes (no JWT filter)
-                .route("auth-service", r -> r
-                        .path("/api/v1/auth/**")
-                        .uri(patientServiceUrl))
+                // Staff Service Routes (Multi-Doctor/Staff Management)
+                .route("staff-service", r -> r
+                        .path("/api/v1/staff/**")
+                        .filters(f -> f.filter(jwtGatewayFilterFactory.apply(new JwtGatewayFilterFactory.Config())))
+                        .uri(staffServiceUrl))
 
-                // Health check endpoint
-                .route("health", r -> r
-                        .path("/health")
-                        .uri(patientServiceUrl))
+                // Feedback Service Routes (Patient Reviews & Feedback)
+                .route("feedback-service", r -> r
+                        .path("/api/v1/feedback/**")
+                        .filters(f -> f.filter(jwtGatewayFilterFactory.apply(new JwtGatewayFilterFactory.Config())))
+                        .uri(feedbackServiceUrl))
+
+                // Public feedback submission by token (no JWT filter)
+                .route("feedback-public", r -> r
+                        .path("/api/v1/feedback/token/**")
+                        .uri(feedbackServiceUrl))
+
 
                 .build();
     }
 }
-

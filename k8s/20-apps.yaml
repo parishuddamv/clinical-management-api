@@ -1,0 +1,404 @@
+# All ClinicOS application Deployments + Services.
+# Images: set your registry via `kubectl set image` or CI (placeholders use REGISTRY).
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clinic-patient
+  namespace: clinicos
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: clinic-patient }
+  template:
+    metadata:
+      labels: { app: clinic-patient }
+    spec:
+      containers:
+        - name: clinic-patient
+          image: REGISTRY/clinic-patient:latest
+          ports: [{ containerPort: 8081 }]
+          env:
+            - { name: SERVER_PORT, value: "8081" }
+          envFrom:
+            - configMapRef: { name: clinicos-config }
+            - secretRef: { name: clinicos-secrets }
+          resources:
+            requests: { cpu: 250m, memory: 512Mi }
+            limits: { cpu: "1", memory: 1Gi }
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: 8081 }
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /actuator/health/liveness, port: 8081 }
+            initialDelaySeconds: 60
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: clinic-patient
+  namespace: clinicos
+spec:
+  selector: { app: clinic-patient }
+  ports: [{ port: 8081, targetPort: 8081 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clinic-appointment
+  namespace: clinicos
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: clinic-appointment }
+  template:
+    metadata:
+      labels: { app: clinic-appointment }
+    spec:
+      containers:
+        - name: clinic-appointment
+          image: REGISTRY/clinic-appointment:latest
+          ports: [{ containerPort: 8082 }]
+          env:
+            - { name: SERVER_PORT, value: "8082" }
+          envFrom:
+            - configMapRef: { name: clinicos-config }
+            - secretRef: { name: clinicos-secrets }
+          resources:
+            requests: { cpu: 250m, memory: 512Mi }
+            limits: { cpu: "1", memory: 1Gi }
+          readinessProbe:
+            httpGet: { path: /actuator/health, port: 8082 }
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /actuator/health, port: 8082 }
+            initialDelaySeconds: 60
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: clinic-appointment
+  namespace: clinicos
+spec:
+  selector: { app: clinic-appointment }
+  ports: [{ port: 8082, targetPort: 8082 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clinic-followup
+  namespace: clinicos
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: clinic-followup }
+  template:
+    metadata:
+      labels: { app: clinic-followup }
+    spec:
+      containers:
+        - name: clinic-followup
+          image: REGISTRY/clinic-followup:latest
+          ports: [{ containerPort: 8083 }]
+          env:
+            - { name: SERVER_PORT, value: "8083" }
+          envFrom:
+            - configMapRef: { name: clinicos-config }
+            - secretRef: { name: clinicos-secrets }
+          resources:
+            requests: { cpu: 200m, memory: 512Mi }
+            limits: { cpu: 500m, memory: 1Gi }
+          readinessProbe:
+            httpGet: { path: /actuator/health, port: 8083 }
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /actuator/health, port: 8083 }
+            initialDelaySeconds: 60
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: clinic-followup
+  namespace: clinicos
+spec:
+  selector: { app: clinic-followup }
+  ports: [{ port: 8083, targetPort: 8083 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clinic-notification
+  namespace: clinicos
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: clinic-notification }
+  template:
+    metadata:
+      labels: { app: clinic-notification }
+    spec:
+      containers:
+        - name: clinic-notification
+          image: REGISTRY/clinic-notification:latest
+          ports: [{ containerPort: 8084 }]
+          env:
+            - { name: SERVER_PORT, value: "8084" }
+          envFrom:
+            - configMapRef: { name: clinicos-config }
+            - secretRef: { name: clinicos-secrets }
+          resources:
+            requests: { cpu: 200m, memory: 512Mi }
+            limits: { cpu: 500m, memory: 1Gi }
+          readinessProbe:
+            httpGet: { path: /actuator/health, port: 8084 }
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /actuator/health, port: 8084 }
+            initialDelaySeconds: 60
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: clinic-notification
+  namespace: clinicos
+spec:
+  selector: { app: clinic-notification }
+  ports: [{ port: 8084, targetPort: 8084 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clinic-billing
+  namespace: clinicos
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: clinic-billing }
+  template:
+    metadata:
+      labels: { app: clinic-billing }
+    spec:
+      containers:
+        - name: clinic-billing
+          image: REGISTRY/clinic-billing:latest
+          ports: [{ containerPort: 8085 }]
+          env:
+            - { name: SERVER_PORT, value: "8085" }
+          envFrom:
+            - configMapRef: { name: clinicos-config }
+            - secretRef: { name: clinicos-secrets }
+          resources:
+            requests: { cpu: 200m, memory: 512Mi }
+            limits: { cpu: 500m, memory: 1Gi }
+          readinessProbe:
+            httpGet: { path: /actuator/health, port: 8085 }
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /actuator/health, port: 8085 }
+            initialDelaySeconds: 60
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: clinic-billing
+  namespace: clinicos
+spec:
+  selector: { app: clinic-billing }
+  ports: [{ port: 8085, targetPort: 8085 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clinic-emr
+  namespace: clinicos
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: clinic-emr }
+  template:
+    metadata:
+      labels: { app: clinic-emr }
+    spec:
+      containers:
+        - name: clinic-emr
+          image: REGISTRY/clinic-emr:latest
+          ports: [{ containerPort: 8086 }]
+          env:
+            - { name: SERVER_PORT, value: "8086" }
+          envFrom:
+            - configMapRef: { name: clinicos-config }
+            - secretRef: { name: clinicos-secrets }
+          resources:
+            requests: { cpu: 250m, memory: 512Mi }
+            limits: { cpu: "1", memory: 1Gi }
+          volumeMounts:
+            - { name: uploads, mountPath: /app/uploads }
+          readinessProbe:
+            httpGet: { path: /actuator/health, port: 8086 }
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /actuator/health, port: 8086 }
+            initialDelaySeconds: 60
+            periodSeconds: 15
+      volumes:
+        - name: uploads
+          persistentVolumeClaim: { claimName: emr-uploads }
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: emr-uploads
+  namespace: clinicos
+spec:
+  accessModes: ["ReadWriteMany"]
+  resources: { requests: { storage: 20Gi } }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: clinic-emr
+  namespace: clinicos
+spec:
+  selector: { app: clinic-emr }
+  ports: [{ port: 8086, targetPort: 8086 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clinic-staff
+  namespace: clinicos
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: clinic-staff }
+  template:
+    metadata:
+      labels: { app: clinic-staff }
+    spec:
+      containers:
+        - name: clinic-staff
+          image: REGISTRY/clinic-staff:latest
+          ports: [{ containerPort: 8087 }]
+          env:
+            - { name: SERVER_PORT, value: "8087" }
+          envFrom:
+            - configMapRef: { name: clinicos-config }
+            - secretRef: { name: clinicos-secrets }
+          resources:
+            requests: { cpu: 200m, memory: 512Mi }
+            limits: { cpu: 500m, memory: 1Gi }
+          readinessProbe:
+            httpGet: { path: /actuator/health, port: 8087 }
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /actuator/health, port: 8087 }
+            initialDelaySeconds: 60
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: clinic-staff
+  namespace: clinicos
+spec:
+  selector: { app: clinic-staff }
+  ports: [{ port: 8087, targetPort: 8087 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clinic-feedback
+  namespace: clinicos
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: clinic-feedback }
+  template:
+    metadata:
+      labels: { app: clinic-feedback }
+    spec:
+      containers:
+        - name: clinic-feedback
+          image: REGISTRY/clinic-feedback:latest
+          ports: [{ containerPort: 8088 }]
+          env:
+            - { name: SERVER_PORT, value: "8088" }
+          envFrom:
+            - configMapRef: { name: clinicos-config }
+            - secretRef: { name: clinicos-secrets }
+          resources:
+            requests: { cpu: 200m, memory: 512Mi }
+            limits: { cpu: 500m, memory: 1Gi }
+          readinessProbe:
+            httpGet: { path: /actuator/health, port: 8088 }
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /actuator/health, port: 8088 }
+            initialDelaySeconds: 60
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: clinic-feedback
+  namespace: clinicos
+spec:
+  selector: { app: clinic-feedback }
+  ports: [{ port: 8088, targetPort: 8088 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clinic-gateway
+  namespace: clinicos
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: clinic-gateway }
+  template:
+    metadata:
+      labels: { app: clinic-gateway }
+    spec:
+      containers:
+        - name: clinic-gateway
+          image: REGISTRY/clinic-gateway:latest
+          ports: [{ containerPort: 8080 }]
+          env:
+            - { name: SERVER_PORT, value: "8080" }
+          envFrom:
+            - configMapRef: { name: clinicos-config }
+            - secretRef: { name: clinicos-secrets }
+          resources:
+            requests: { cpu: 500m, memory: 512Mi }
+            limits: { cpu: "2", memory: 1Gi }
+          readinessProbe:
+            httpGet: { path: /actuator/health, port: 8080 }
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /actuator/health, port: 8080 }
+            initialDelaySeconds: 60
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: clinic-gateway
+  namespace: clinicos
+spec:
+  selector: { app: clinic-gateway }
+  ports: [{ port: 8080, targetPort: 8080 }]
+

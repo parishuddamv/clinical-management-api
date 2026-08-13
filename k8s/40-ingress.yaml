@@ -1,0 +1,26 @@
+# Public ingress -> API gateway only. All other services stay cluster-internal.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: clinicos-ingress
+  namespace: clinicos
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "20m"
+    nginx.ingress.kubernetes.io/rate-limit-rps: "50"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: ["api.clinicos.example.com"]
+      secretName: clinicos-tls
+  rules:
+    - host: api.clinicos.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: clinic-gateway
+                port: { number: 8080 }
+

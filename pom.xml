@@ -24,6 +24,7 @@
         <jjwt.version>0.11.5</jjwt.version>
         <lombok.version>1.18.30</lombok.version>
         <flyway.version>10.17.0</flyway.version>
+        <micrometer.version>1.12.2</micrometer.version>
     </properties>
 
     <modules>
@@ -34,6 +35,8 @@
         <module>clinic-notification</module>
         <module>clinic-billing</module>
         <module>clinic-emr</module>
+        <module>clinic-staff</module>
+        <module>clinic-feedback</module>
         <module>clinic-gateway</module>
     </modules>
 
@@ -112,6 +115,24 @@
                 <artifactId>flyway-database-postgresql</artifactId>
                 <version>${flyway.version}</version>
             </dependency>
+
+            <!-- Prometheus Metrics -->
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-starter-actuator</artifactId>
+            </dependency>
+            <dependency>
+                <groupId>io.micrometer</groupId>
+                <artifactId>micrometer-registry-prometheus</artifactId>
+                <version>${micrometer.version}</version>
+            </dependency>
+
+            <!-- Encryption -->
+            <dependency>
+                <groupId>org.jasypt</groupId>
+                <artifactId>jasypt</artifactId>
+                <version>1.9.3</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -140,6 +161,13 @@
                             <arg>--enable-preview</arg>
                             <arg>-parameters</arg>
                         </compilerArgs>
+                        <annotationProcessorPaths>
+                            <path>
+                                <groupId>org.projectlombok</groupId>
+                                <artifactId>lombok</artifactId>
+                                <version>${lombok.version}</version>
+                            </path>
+                        </annotationProcessorPaths>
                     </configuration>
                 </plugin>
 

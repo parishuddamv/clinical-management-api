@@ -1,0 +1,113 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'clinical-management-system'
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Patient Service
+  - job_name: 'clinic-patient'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['clinic-patient:8081']
+        labels:
+          service: 'patient'
+    scrape_interval: 10s
+    scrape_timeout: 5s
+
+  # Appointment Service
+  - job_name: 'clinic-appointment'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['clinic-appointment:8082']
+        labels:
+          service: 'appointment'
+    scrape_interval: 10s
+
+  # Follow-up Service
+  - job_name: 'clinic-followup'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['clinic-followup:8083']
+        labels:
+          service: 'followup'
+    scrape_interval: 10s
+
+  # Notification Service
+  - job_name: 'clinic-notification'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['clinic-notification:8084']
+        labels:
+          service: 'notification'
+    scrape_interval: 10s
+
+  # Billing Service
+  - job_name: 'clinic-billing'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['clinic-billing:8085']
+        labels:
+          service: 'billing'
+    scrape_interval: 10s
+
+  # EMR Service
+  - job_name: 'clinic-emr'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['clinic-emr:8086']
+        labels:
+          service: 'emr'
+    scrape_interval: 10s
+
+  # Staff Service
+  - job_name: 'clinic-staff'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['clinic-staff:8087']
+        labels:
+          service: 'staff'
+    scrape_interval: 10s
+
+  # Feedback Service
+  - job_name: 'clinic-feedback'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['clinic-feedback:8088']
+        labels:
+          service: 'feedback'
+    scrape_interval: 10s
+
+  # Gateway Service
+  - job_name: 'clinic-gateway'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['clinic-gateway:8080']
+        labels:
+          service: 'gateway'
+    scrape_interval: 10s
+
+  # PostgreSQL (optional - requires postgres exporter)
+  # - job_name: 'postgres'
+  #   static_configs:
+  #     - targets: ['postgres-exporter:9187']
+
+  # Redis (optional - requires redis exporter)
+  # - job_name: 'redis'
+  #   static_configs:
+  #     - targets: ['redis-exporter:9121']
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+# Rule files for alerts
+rule_files:
+  - 'alert_rules.yml'
+

@@ -4,16 +4,46 @@ spring:
     properties:
       hibernate:
         format_sql: false
+        jdbc:
+          batch_size: 100
+          fetch_size: 200
+        generate_statistics: false
   datasource:
     hikari:
-      maximum-pool-size: ${DB_POOL_SIZE:15}
-      minimum-idle: ${DB_MIN_IDLE:5}
-      connection-timeout: 20000
+      maximum-pool-size: ${DB_POOL_SIZE:30}
+      minimum-idle: ${DB_MIN_IDLE:10}
+      connection-timeout: 15000
+      idle-timeout: 900000
+      max-lifetime: 1800000
+  redis:
+    enabled: true
+    host: ${REDIS_HOST:redis}
+    port: ${REDIS_PORT:6379}
+    password: ${REDIS_PASSWORD:}
+    timeout: 1000ms
+    lettuce:
+      pool:
+        max-active: 50
+        max-idle: 30
+        min-idle: 10
+  cache:
+    type: redis
+    cache-names: patients,patientSearch
+    redis:
+      time-to-live: 3600000
 
 server:
   compression:
     enabled: true
-    min-response-size: 1024
+    min-response-size: 512
+  http2:
+    enabled: true
+  tomcat:
+    threads:
+      max: 300
+      min-spare: 20
+    accept-count: 200
+    connection-timeout: 15000ms
 
 logging:
   level:
@@ -31,8 +61,12 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health,info,metrics,prometheus
   endpoint:
     health:
       show-details: when-authorized
+  metrics:
+    export:
+      prometheus:
+        enabled: true
 

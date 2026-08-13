@@ -19,6 +19,12 @@ public class GoogleAuthResponse {
     private long expiresIn;            // Token expiration in seconds (86400 = 24 hours)
     private String clinicId;           // Clinic ID for the user
 
+    // New fields for user approval workflow
+    private String userStatus;         // NEW, PENDING, APPROVED, REJECTED, SUSPENDED
+    private Boolean isApproved;        // Is user approved?
+    private Boolean needsDemoBooking;  // Should user book a demo?
+    private String message;            // Status message for frontend
+
     /**
      * Nested User Information in Response
      */

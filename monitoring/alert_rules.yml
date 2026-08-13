@@ -1,0 +1,114 @@
+groups:
+  - name: PerformanceAlerts
+    interval: 30s
+    rules:
+      # High Response Time Alert
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, rate(http_server_requests_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+          service: clinical-management
+        annotations:
+          summary: "High API response time detected"
+          description: "P95 response time is {{ $value }}s, exceeding 1s threshold"
+
+      # Very High Response Time Alert
+      - alert: VeryHighResponseTime
+        expr: histogram_quantile(0.99, rate(http_server_requests_seconds_bucket[5m])) > 2
+        for: 2m
+        labels:
+          severity: critical
+          service: clinical-management
+        annotations:
+          summary: "CRITICAL: Very high API response time"
+          description: "P99 response time is {{ $value }}s, exceeding 2s threshold"
+
+      # High Error Rate Alert
+      - alert: HighErrorRate
+        expr: rate(http_server_requests_seconds_count{status=~"5.."}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          service: clinical-management
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value | humanizePercentage }} over 5 minutes"
+
+      # Database Connection Pool Exhaustion
+      - alert: DBConnectionPoolExhausted
+        expr: hikaricp_connections{pool="HikariPool-1"} >= 20
+        for: 2m
+        labels:
+          severity: warning
+          service: clinical-management
+        annotations:
+          summary: "Database connection pool near exhaustion"
+          description: "Active connections: {{ $value }} / 20"
+
+      # High Memory Usage
+      - alert: HighMemoryUsage
+        expr: jvm_memory_used_bytes{area="heap"} / jvm_memory_max_bytes{area="heap"} > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          service: clinical-management
+        annotations:
+          summary: "High JVM heap memory usage"
+          description: "Heap memory usage is {{ $value | humanizePercentage }}"
+
+      # Critical Memory Usage
+      - alert: CriticalMemoryUsage
+        expr: jvm_memory_used_bytes{area="heap"} / jvm_memory_max_bytes{area="heap"} > 0.95
+        for: 2m
+        labels:
+          severity: critical
+          service: clinical-management
+        annotations:
+          summary: "CRITICAL: Heap memory critically high"
+          description: "Heap memory usage is {{ $value | humanizePercentage }}"
+
+      # Cache Hit Ratio Low
+      - alert: LowCacheHitRatio
+        expr: rate(cache_gets_miss_total[5m]) / (rate(cache_gets_hit_total[5m]) + rate(cache_gets_miss_total[5m])) > 0.5
+        for: 10m
+        labels:
+          severity: info
+          service: clinical-management
+        annotations:
+          summary: "Cache hit ratio is low"
+          description: "Cache miss ratio is {{ $value | humanizePercentage }}"
+
+      # Service Down
+      - alert: ServiceDown
+        expr: up{job=~"clinic-.*"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: clinical-management
+        annotations:
+          summary: "Service is down"
+          description: "{{ $labels.job }} is not responding"
+
+      # Slow Database Queries
+      - alert: SlowDatabaseQueries
+        expr: rate(http_server_requests_seconds_sum{uri=~"/api/v1/patients.*"}[5m]) / rate(http_server_requests_seconds_count{uri=~"/api/v1/patients.*"}[5m]) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          service: clinical-management
+        annotations:
+          summary: "Slow database queries detected"
+          description: "Patient service average response time: {{ $value }}s"
+
+      # Thread Pool Saturation
+      - alert: ThreadPoolSaturation
+        expr: jvm_threads_live_threads / jvm_threads_peak_threads > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          service: clinical-management
+        annotations:
+          summary: "Thread pool saturation detected"
+          description: "Active threads: {{ $value | humanize }}"
+

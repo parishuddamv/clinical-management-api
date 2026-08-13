@@ -47,6 +47,10 @@ spring:
           connectiontimeout: 5000
           timeout: 5000
           writetimeout: 5000
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: ${KAFKA_CONSUMER_GROUP:clinic-notification}
 
 server:
   port: ${SERVER_PORT:8084}
@@ -60,6 +64,11 @@ server:
     include-exception: false
 
 app:
+  kafka:
+    enabled: ${KAFKA_ENABLED:false}
+    topics:
+      notifications: ${KAFKA_TOPIC_NOTIFICATIONS:clinicos.notifications}
+    listener-concurrency: ${KAFKA_LISTENER_CONCURRENCY:3}
   jwt:
     secret: ${JWT_SECRET:your-secret-key-minimum-64-chars-for-hs512-algorithm-security-requirement}
     expiration: ${JWT_EXPIRATION:86400000}
