@@ -1,0 +1,85 @@
+# ============================================================
+# ClinicOS Patient Service
+# ============================================================
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clinic-patient
+  namespace: clinicos
+spec:
+  replicas: 2
+
+  selector:
+    matchLabels:
+      app: clinic-patient
+
+  template:
+    metadata:
+      labels:
+        app: clinic-patient
+
+    spec:
+      containers:
+        - name: clinic-patient
+          image: asia-south1-docker.pkg.dev/clinicos-prod-2026/clinicos-repo/clinic-patient:1.0.4
+
+          ports:
+            - containerPort: 8081
+              protocol: TCP
+
+          env:
+            - name: SERVER_PORT
+              value: "8081"
+
+          envFrom:
+            - configMapRef:
+                name: clinicos-config
+            - secretRef:
+                name: clinicos-secrets
+
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8081
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8081
+            initialDelaySeconds: 150
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: clinic-patient
+  namespace: clinicos
+
+spec:
+  selector:
+    app: clinic-patient
+
+  ports:
+    - name: http
+      port: 8081
+      targetPort: 8081
+      protocol: TCP
+
+  type: ClusterIP

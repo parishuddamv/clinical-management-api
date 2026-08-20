@@ -1,6 +1,7 @@
 package com.clinicos.common.security;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -24,6 +25,11 @@ import java.util.List;
  * Configures stateless session, JWT filter, and CORS.
  */
 @Configuration
+@ConditionalOnProperty(
+    name = "app.security.common-enabled",
+    havingValue = "true",
+    matchIfMissing = true
+)
 @EnableWebSecurity
 @EnableMethodSecurity
 @RequiredArgsConstructor
