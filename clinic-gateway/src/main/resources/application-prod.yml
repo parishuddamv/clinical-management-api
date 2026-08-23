@@ -67,9 +67,10 @@ app:
     clientId: ${GOOGLE_CLIENT_ID:}
 
   security:
+    common-enabled: ${COMMON_SECURITY_ENABLED:false}
     cors:
-      allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200}
-      allowed-methods: GET,POST,PUT,DELETE,OPTIONS
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:https://www.clinisysone.com,https://clinisysone.com}
+      allowed-methods: GET,POST,PUT,DELETE,OPTIONS,PATCH,HEAD
       max-age: 3600
 
 logging:

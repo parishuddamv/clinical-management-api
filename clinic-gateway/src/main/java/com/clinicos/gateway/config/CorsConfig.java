@@ -10,66 +10,59 @@ import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
 import java.util.Arrays;
 import java.util.List;
 
-/**
- * CORS configuration for the API Gateway (Spring Cloud Gateway / WebFlux).
- * This applies CORS headers to ALL routes passing through the gateway.
- * 
- * Handles:
- * - Preflight (OPTIONS) requests
- * - Actual requests with proper CORS headers
- * - Credentials (cookies, authorization headers)
- * - Multiple allowed origins
- */
 @Configuration
 public class CorsConfig {
 
-    @Value("${app.security.cors.allowed-origins:http://localhost:3000,http://localhost:8080,http://localhost:4200,http://localhost:43263}")
+    @Value("${app.security.cors.allowed-origins}")
     private String allowedOrigins;
-
-    @Value("${app.security.cors.allowed-methods:GET,POST,PUT,DELETE,OPTIONS,PATCH,HEAD}")
-    private String allowedMethods;
 
     @Bean
     public CorsWebFilter corsWebFilter() {
-        CorsConfiguration corsConfiguration = new CorsConfiguration();
 
-        // Parse comma-separated origins from environment variable
-        List<String> origins = Arrays.asList(allowedOrigins.split(","));
-        
-        // Use allowedOriginPatterns when allowCredentials is true
-        // This is more flexible and avoids the "*" with credentials issue
-        origins.forEach(origin -> corsConfiguration.addAllowedOriginPattern(origin.trim()));
+        CorsConfiguration configuration = new CorsConfiguration();
 
-        // Allowed HTTP methods for preflight requests
-        corsConfiguration.setAllowedMethods(Arrays.asList(
-                "GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"
+        List<String> origins = Arrays.stream(
+                        allowedOrigins.split(",")
+                )
+                .map(String::trim)
+                .filter(origin -> !origin.isBlank())
+                .toList();
+
+        configuration.setAllowedOrigins(origins);
+
+        configuration.setAllowedMethods(List.of(
+                "GET",
+                "POST",
+                "PUT",
+                "DELETE",
+                "PATCH",
+                "OPTIONS"
         ));
 
-        // Allowed request headers - allow all
-        corsConfiguration.setAllowedHeaders(List.of("*"));
-
-        // Exposed headers (headers client can read)
-        corsConfiguration.setExposedHeaders(List.of(
+        configuration.setAllowedHeaders(List.of(
                 "Authorization",
                 "Content-Type",
+                "Accept",
+                "Origin",
                 "X-Requested-With",
-                "X-Total-Count",
-                "X-Page-Number",
-                "X-Page-Size",
-                "Access-Control-Allow-Origin",
-                "Access-Control-Allow-Credentials"
+                "X-Clinic-ID"
         ));
 
-        // Allow credentials (cookies, authorization headers)
-        corsConfiguration.setAllowCredentials(true);
+        configuration.setExposedHeaders(List.of(
+                "Authorization",
+                "Content-Type",
+                "X-Total-Count",
+                "X-Page-Number",
+                "X-Page-Size"
+        ));
 
-        // Cache preflight responses for 1 hour (3600 seconds)
-        corsConfiguration.setMaxAge(3600L);
+        configuration.setAllowCredentials(true);
+        configuration.setMaxAge(3600L);
 
-        // Note: reactive gateway uses org.springframework.web.cors.reactive classes
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        // Apply CORS configuration to all paths
-        source.registerCorsConfiguration("/**", corsConfiguration);
+        UrlBasedCorsConfigurationSource source =
+                new UrlBasedCorsConfigurationSource();
+
+        source.registerCorsConfiguration("/**", configuration);
 
         return new CorsWebFilter(source);
     }

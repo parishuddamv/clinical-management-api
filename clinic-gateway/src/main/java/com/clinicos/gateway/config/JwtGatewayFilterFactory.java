@@ -10,11 +10,12 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 /**
- * Gateway filter for JWT token validation and multi-tenancy context setting
+ * Gateway filter for JWT token validation and multi-tenancy context setting.
  */
 @Slf4j
 @Component
-public class JwtGatewayFilterFactory extends AbstractGatewayFilterFactory<JwtGatewayFilterFactory.Config> {
+public class JwtGatewayFilterFactory
+        extends AbstractGatewayFilterFactory<JwtGatewayFilterFactory.Config> {
 
     private final JwtTokenProvider jwtTokenProvider;
 
@@ -25,99 +26,166 @@ public class JwtGatewayFilterFactory extends AbstractGatewayFilterFactory<JwtGat
 
     @Override
     public GatewayFilter apply(Config config) {
-        return (exchange, chain) -> {
-            String path = exchange.getRequest().getPath().toString();
-            String authHeader = exchange.getRequest().getHeaders().getFirst("Authorization");
-            
-            // Debug: Log full auth header info for troubleshooting
-            if (authHeader != null) {
-                log.info("Auth header length: {}, starts with 'Bearer ': {}, first 50 chars: [{}]", 
-                    authHeader.length(),
-                    authHeader.startsWith("Bearer "),
-                    authHeader.length() > 50 ? authHeader.substring(0, 50) : authHeader);
-                
-                // Check for common issues
-                if (authHeader.equals("Bearer null") || authHeader.equals("Bearer undefined")) {
-                    log.error("Frontend is sending literal 'null' or 'undefined' as token!");
-                    return onError(exchange, "Unauthorized - Token is null or undefined", HttpStatus.UNAUTHORIZED);
-                }
-                if (authHeader.startsWith("Bearer [object")) {
-                    log.error("Frontend is sending object instead of token string!");
-                    return onError(exchange, "Unauthorized - Invalid token format (object instead of string)", HttpStatus.UNAUTHORIZED);
-                }
-            } else {
-                log.warn("No Authorization header present for path: {}", path);
-            }
-            
-            String token = extractToken(exchange);
 
-            if (token == null) {
-                log.warn("No JWT token found in Authorization header for path: {}", path);
-                return onError(exchange, "Unauthorized - Missing JWT token", HttpStatus.UNAUTHORIZED);
+        return (exchange, chain) -> {
+
+            String path = exchange.getRequest().getPath().toString();
+
+            String authHeader =
+                    exchange.getRequest()
+                            .getHeaders()
+                            .getFirst("Authorization");
+
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+
+                log.warn(
+                        "Missing/invalid Authorization header for path: {}",
+                        path
+                );
+
+                return onError(
+                        exchange,
+                        "Unauthorized - Missing JWT token",
+                        HttpStatus.UNAUTHORIZED
+                );
             }
-            
-            // Check if token looks like a valid JWT (should have 3 parts separated by dots)
+
+            String token = authHeader.substring(7).trim();
+
+            if (token.isEmpty()) {
+
+                return onError(
+                        exchange,
+                        "Unauthorized - Empty JWT token",
+                        HttpStatus.UNAUTHORIZED
+                );
+            }
+
             String[] parts = token.split("\\.");
+
             if (parts.length != 3) {
-                log.error("Invalid JWT format: expected 3 parts, got {}. Token starts with: [{}]", 
-                    parts.length, 
-                    token.length() > 30 ? token.substring(0, 30) : token);
-                return onError(exchange, "Unauthorized - Invalid JWT format", HttpStatus.UNAUTHORIZED);
+
+                log.warn(
+                        "Invalid JWT format for path: {}",
+                        path
+                );
+
+                return onError(
+                        exchange,
+                        "Unauthorized - Invalid JWT format",
+                        HttpStatus.UNAUTHORIZED
+                );
             }
-            
+
             if (!jwtTokenProvider.validateToken(token)) {
-                log.warn("JWT validation failed for path: {}", path);
-                return onError(exchange, "Unauthorized - Invalid JWT token", HttpStatus.UNAUTHORIZED);
+
+                log.warn(
+                        "JWT validation failed for path: {}",
+                        path
+                );
+
+                return onError(
+                        exchange,
+                        "Unauthorized - Invalid JWT token",
+                        HttpStatus.UNAUTHORIZED
+                );
             }
 
             try {
-                String username = jwtTokenProvider.extractUsername(token);
-                String clinicId = jwtTokenProvider.extractClinicId(token);
 
-                log.debug("Authenticated user: {} with clinic: {} for path: {}", username, clinicId, path);
+                String username =
+                        jwtTokenProvider.extractUsername(token);
 
-                // Add clinic_id to request headers for downstream services
-                exchange.getRequest().mutate()
-                    .header("X-Clinic-ID", clinicId)
-                    .header("X-User-ID", username)
-                    .build();
+                String clinicId =
+                        jwtTokenProvider.extractClinicId(token);
 
-                return chain.filter(exchange);
+                if (username == null || username.isBlank()) {
+
+                    return onError(
+                            exchange,
+                            "Unauthorized - Missing user identity",
+                            HttpStatus.UNAUTHORIZED
+                    );
+                }
+
+                if (clinicId == null || clinicId.isBlank()) {
+
+                    return onError(
+                            exchange,
+                            "Unauthorized - Missing clinic context",
+                            HttpStatus.UNAUTHORIZED
+                    );
+                }
+
+                log.debug(
+                        "Authenticated request: user={}, clinic={}, path={}",
+                        username,
+                        clinicId,
+                        path
+                );
+
+                ServerWebExchange mutatedExchange =
+                        exchange.mutate()
+                                .request(
+                                        exchange.getRequest()
+                                                .mutate()
+                                                .header("X-Clinic-ID", clinicId)
+                                                .header("X-User-ID", username)
+                                                .build()
+                                )
+                                .build();
+
+                return chain.filter(mutatedExchange);
+
             } catch (Exception e) {
-                log.error("Token validation failed for path: {}", path, e);
-                return onError(exchange, "Unauthorized - Token validation failed", HttpStatus.UNAUTHORIZED);
+
+                log.error(
+                        "JWT processing failed for path: {}",
+                        path,
+                        e
+                );
+
+                return onError(
+                        exchange,
+                        "Unauthorized - Token processing failed",
+                        HttpStatus.UNAUTHORIZED
+                );
             }
         };
     }
 
-    private String extractToken(ServerWebExchange exchange) {
-        String header = exchange.getRequest().getHeaders().getFirst("Authorization");
-        if (header != null && header.startsWith("Bearer ")) {
-            return header.substring(7);
-        }
-        return null;
-    }
+    private Mono<Void> onError(
+            ServerWebExchange exchange,
+            String message,
+            HttpStatus status) {
 
-    private Mono<Void> onError(ServerWebExchange exchange, String message, HttpStatus status) {
         exchange.getResponse().setStatusCode(status);
-        exchange.getResponse().getHeaders().add("Content-Type", "application/json");
-        
-        // Include helpful debug info in response
-        String path = exchange.getRequest().getPath().toString();
-        String debugHint = "Ensure your frontend sends 'Authorization: Bearer <token>' header. " +
-                           "Token should be stored from /api/v1/auth/google response at data.data.token";
-        
+
+        exchange.getResponse()
+                .getHeaders()
+                .add("Content-Type", "application/json");
+
+        String path =
+                exchange.getRequest()
+                        .getPath()
+                        .toString();
+
         String jsonResponse = String.format(
-            "{\"success\":false,\"error\":\"%s\",\"path\":\"%s\",\"hint\":\"%s\"}", 
-            message, path, debugHint
+                "{\"success\":false,\"error\":\"%s\",\"path\":\"%s\"}",
+                message,
+                path
         );
-        
-        return exchange.getResponse().writeWith(
-            Mono.just(exchange.getResponse().bufferFactory().wrap(jsonResponse.getBytes()))
-        );
+
+        return exchange.getResponse()
+                .writeWith(
+                        Mono.just(
+                                exchange.getResponse()
+                                        .bufferFactory()
+                                        .wrap(jsonResponse.getBytes())
+                        )
+                );
     }
 
     public static class Config {
-        // Configuration properties can be added here
     }
 }

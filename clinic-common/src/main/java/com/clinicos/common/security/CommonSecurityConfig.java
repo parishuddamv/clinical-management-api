@@ -53,10 +53,9 @@ public class CommonSecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // Split comma-separated origins from environment variable
-        // Use allowedOriginPatterns when allowCredentials is true
+        // Split comma-separated exact origins from environment variable
         List<String> origins = Arrays.asList(allowedOrigins.split(","));
-        origins.forEach(origin -> configuration.addAllowedOriginPattern(origin.trim()));
+        origins.forEach(origin -> configuration.addAllowedOrigin(origin.trim()));
         
         // Allow all standard HTTP methods
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"));
