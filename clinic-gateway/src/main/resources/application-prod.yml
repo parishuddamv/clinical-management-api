@@ -41,6 +41,8 @@ spring:
 
   cloud:
     gateway:
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin, RETAIN_FIRST
       httpclient:
         connect-timeout: 3000
         response-timeout: 5s

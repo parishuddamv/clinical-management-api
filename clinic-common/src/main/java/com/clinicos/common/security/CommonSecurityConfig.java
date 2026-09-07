@@ -22,13 +22,15 @@ import java.util.List;
 
 /**
  * Spring Security configuration with JWT authentication.
- * Configures stateless session, JWT filter, and CORS.
+ * Configures stateless session and JWT filter.
+ *
+ * CORS is handled centrally by the API Gateway.
  */
 @Configuration
 @ConditionalOnProperty(
-    name = "app.security.common-enabled",
-    havingValue = "true",
-    matchIfMissing = true
+        name = "app.security.common-enabled",
+        havingValue = "true",
+        matchIfMissing = true
 )
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -50,58 +52,71 @@ public class CommonSecurityConfig {
         return new JwtAuthFilter(jwtTokenProvider);
     }
 
+    /**
+     * Retained for compatibility with services that may explicitly reference
+     * this bean. CORS is disabled in the SecurityFilterChain because the
+     * API Gateway is the single CORS authority.
+     */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // Split comma-separated exact origins from environment variable
+
         List<String> origins = Arrays.asList(allowedOrigins.split(","));
         origins.forEach(origin -> configuration.addAllowedOrigin(origin.trim()));
-        
-        // Allow all standard HTTP methods
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"));
-        
-        // Allow all headers - important for Authorization header
-        configuration.setAllowedHeaders(List.of("*"));
-        
-        // Expose headers that frontend might need
-        configuration.setExposedHeaders(List.of(
-            "Authorization", 
-            "Content-Type", 
-            "X-Total-Count",
-            "Access-Control-Allow-Origin",
-            "Access-Control-Allow-Credentials"
+
+        configuration.setAllowedMethods(List.of(
+                "GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"
         ));
-        
+
+        configuration.setAllowedHeaders(List.of("*"));
+
+        configuration.setExposedHeaders(List.of(
+                "Authorization",
+                "Content-Type",
+                "X-Total-Count"
+        ));
+
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
 
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        UrlBasedCorsConfigurationSource source =
+                new UrlBasedCorsConfigurationSource();
+
         source.registerCorsConfiguration("/**", configuration);
+
         return source;
     }
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            // Disable CSRF for stateless API
-            .csrf(csrf -> csrf.disable())
+                // Disable CSRF for stateless API
+                .csrf(csrf -> csrf.disable())
 
-            // Enable CORS using our corsConfigurationSource bean
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                // CORS is handled centrally by the API Gateway
+                .cors(cors -> cors.disable())
 
-            // Set session management to stateless
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                // Set session management to stateless
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
 
-            // Configure authorization
-            .authorizeHttpRequests(authz -> authz
-                .requestMatchers("/api/v1/auth/**", "/health", "/actuator/**").permitAll()
-                .anyRequest().authenticated()
-            )
+                // Configure authorization
+                .authorizeHttpRequests(authz -> authz
+                        .requestMatchers(
+                                "/api/v1/auth/**",
+                                "/health",
+                                "/actuator/**"
+                        ).permitAll()
+                        .anyRequest().authenticated()
+                )
 
-            // Add JWT filter
-            .addFilterBefore(jwtAuthFilter(), UsernamePasswordAuthenticationFilter.class);
+                // Add JWT filter
+                .addFilterBefore(
+                        jwtAuthFilter(),
+                        UsernamePasswordAuthenticationFilter.class
+                );
 
         return http.build();
     }
 }
-

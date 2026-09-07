@@ -128,10 +128,10 @@ public class PatientService {
 
     /**
      * Search patients by name or phone with pagination
-     * Results cached for 15 minutes for performance
+     * Intentionally not cached: Redis JSON deserialization of PageImpl can fail
+     * when reading back cached values across service versions/configurations.
      */
     @Transactional(readOnly = true)
-    @Cacheable(value = "patientSearch", key = "#clinicId + ':' + #query + ':' + #pageable.pageNumber + ':' + #pageable.pageSize", unless = "#result == null || #result.isEmpty()")
     public Page<PatientSummaryResponse> searchPatients(String clinicId, String query, Pageable pageable) {
         log.info("Searching patients for clinic: {} with query: {}", clinicId, query);
 

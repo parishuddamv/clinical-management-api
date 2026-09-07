@@ -14,7 +14,7 @@ import java.time.LocalDate;
  */
 @Entity
 @Table(name = "followups", indexes = {
-    @Index(name = "idx_clinic_patient", columnList = "clinic_id, patient_id"),
+    @Index(name = "idx_patients", columnList = "clinic_id, patient_id"),
     @Index(name = "idx_clinic_duedate", columnList = "clinic_id, due_date")
 })
 @Data

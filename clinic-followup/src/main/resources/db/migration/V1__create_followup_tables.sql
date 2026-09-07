@@ -12,7 +12,7 @@ CREATE TABLE followups (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_followups_clinic_patient ON followups(clinic_id, patient_id);
+CREATE INDEX idx_followups_patients ON followups(clinic_id, patient_id);
 CREATE INDEX idx_followups_clinic_duedate ON followups(clinic_id, due_date);
 CREATE INDEX idx_followups_clinic_status ON followups(clinic_id, status);
 

@@ -189,7 +189,7 @@ hikari:
 ### 3. Strategic Database Indexes (17 Total)
 ```sql
 CREATE INDEX idx_patient_search_name 
-ON clinic_patient(clinic_id, is_active, first_name, last_name);
+ON patients(clinic_id, is_active, first_name, last_name);
 ```
 - **Benefit**: Search queries 40-60% faster
 - **Coverage**: All common WHERE clauses and JOINs
@@ -197,7 +197,7 @@ ON clinic_patient(clinic_id, is_active, first_name, last_name);
 ### 4. Query Optimization
 ```java
 @Query(value = "SELECT p.id, p.first_name, p.last_name, p.phone ... 
-               FROM clinic_patient p WHERE ...")
+               FROM patients p WHERE ...")
 Page<Patient> searchByName(...);
 ```
 - **Benefit**: Only fetch needed columns, 50% less data transfer

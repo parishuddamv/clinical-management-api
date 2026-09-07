@@ -12,7 +12,7 @@ CREATE TABLE appointments (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_appointments_clinic_patient ON appointments(clinic_id, patient_id);
+CREATE INDEX idx_appointments_patients ON appointments(clinic_id, patient_id);
 CREATE INDEX idx_appointments_clinic_datetime ON appointments(clinic_id, appointment_datetime);
 CREATE INDEX idx_appointments_clinic_status ON appointments(clinic_id, status);
 

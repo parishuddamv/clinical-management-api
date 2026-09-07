@@ -233,7 +233,7 @@ psql -h localhost -p 15432 -U clinicos_user -d clinicos_db
 SELECT * FROM clinic_user;
 
 # Query patients
-SELECT * FROM clinic_patient;
+SELECT * FROM patients;
 
 # Query appointments
 SELECT * FROM appointment;

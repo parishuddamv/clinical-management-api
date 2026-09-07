@@ -77,14 +77,14 @@ minimum-idle: 10
 ```sql
 -- Patient Search (Most Critical)
 CREATE INDEX idx_patient_search_name 
-ON clinic_patient(clinic_id, is_active, first_name, last_name);
+ON patients(clinic_id, is_active, first_name, last_name);
 
 -- Recent Patients (Dashboard)
 CREATE INDEX idx_patient_created_at 
-ON clinic_patient(clinic_id, created_at DESC);
+ON patients(clinic_id, created_at DESC);
 
 -- Foreign Keys (Joins)
-CREATE INDEX idx_patient_tag_clinic_patient 
+CREATE INDEX idx_patient_tag_patients 
 ON patient_tag(clinic_id, patient_id);
 ```
 

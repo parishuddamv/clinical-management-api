@@ -136,7 +136,7 @@ docker exec clinicos-redis redis-cli ping
 docker exec clinicos-postgres psql -U clinicos_prod_user -d clinicos_db \
   -c "\dt"
 
-# Should show: clinic_patient, clinic_appointment, etc.
+# Should show: patients, clinic_appointment, etc.
 ```
 
 ### Step 3.2: Create Performance Indexes

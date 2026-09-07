@@ -110,13 +110,13 @@ Error Rate:           <0.1%         (excellent)     ✅ Stable
 ### 3. **Strategic Database Indexes** (17 Total)
 ```sql
 -- Patient search
-CREATE INDEX idx_patient_search_name ON clinic_patient(clinic_id, is_active, first_name, last_name);
+CREATE INDEX idx_patient_search_name ON patients(clinic_id, is_active, first_name, last_name);
 
 -- Dashboard queries
 CREATE INDEX idx_appointment_clinic_date ON clinic_appointment(clinic_id, appointment_date_time DESC);
 
 -- Foreign keys
-CREATE INDEX idx_patient_tag_clinic_patient ON patient_tag(clinic_id, patient_id);
+CREATE INDEX idx_patient_tag_patients ON patient_tag(clinic_id, patient_id);
 ```
 
 ### 4. **Query Optimization**
