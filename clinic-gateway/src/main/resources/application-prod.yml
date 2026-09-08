@@ -109,6 +109,8 @@ management:
         enabled: true
 
   health:
+    mail:
+      enabled: false
     livenessstate:
       enabled: true
     readinessstate:

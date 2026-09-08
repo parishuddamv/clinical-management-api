@@ -38,6 +38,8 @@ management:
       probes:
         enabled: true
   health:
+    mail:
+      enabled: false
     livenessstate:
       enabled: true
     readinessstate:
