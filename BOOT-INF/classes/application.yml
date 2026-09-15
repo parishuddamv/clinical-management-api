@@ -14,11 +14,11 @@ spring:
     hibernate:
       ddl-auto: validate
     show-sql: false
-  flyway:
-    enabled: true
-    baseline-on-migrate: true
-    table: flyway_schema_history_feedback
-    locations: classpath:db/migration
+flyway:
+  enabled: true
+  baseline-on-migrate: true
+  table: flyway_schema_history_feedback
+  locations: classpath:db/migration
 
 jwt:
   secret: ${JWT_SECRET:your-secret-key-minimum-64-chars-for-hs512-algorithm-security-requirement}

@@ -21,10 +21,10 @@ import java.util.Map;
 @Component
 public class JwtTokenProvider {
 
-    @Value("${app.jwt.secret:your-secret-key-minimum-64-chars-for-hs512-algorithm-security-requirement}")
+    @Value("${jwt.secret:your-secret-key-minimum-64-chars-for-hs512-algorithm-security-requirement}")
     private String jwtSecret;
 
-    @Value("${app.jwt.expiration:86400000}")
+    @Value("${jwt.expiration:86400000}")
     private long jwtExpirationMs;
 
     private byte[] getSigningKey() {

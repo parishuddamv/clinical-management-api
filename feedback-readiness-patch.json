@@ -1,0 +1,23 @@
+{
+  "spec": {
+    "template": {
+      "spec": {
+        "containers": [
+          {
+            "name": "clinic-feedback",
+            "readinessProbe": {
+              "tcpSocket": {
+                "port": 8088
+              },
+              "initialDelaySeconds": 90,
+              "periodSeconds": 10,
+              "timeoutSeconds": 5,
+              "failureThreshold": 6,
+              "successThreshold": 1
+            }
+          }
+        ]
+      }
+    }
+  }
+}

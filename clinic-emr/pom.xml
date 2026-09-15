@@ -21,7 +21,10 @@
             <artifactId>clinic-common</artifactId>
             <version>${project.version}</version>
         </dependency>
-
+	<dependency>
+    	     <groupId>org.springframework.boot</groupId>
+   	     <artifactId>spring-boot-starter-actuator</artifactId>
+	</dependency>
         <!-- Spring Boot Starters -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

@@ -2,7 +2,6 @@ package com.clinicos.common.security;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -13,12 +12,6 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.CorsConfigurationSource;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-
-import java.util.Arrays;
-import java.util.List;
 
 /**
  * Spring Security configuration with JWT authentication.
@@ -39,9 +32,6 @@ public class CommonSecurityConfig {
 
     private final JwtTokenProvider jwtTokenProvider;
 
-    @Value("${app.security.cors.allowed-origins:http://localhost:3000,http://localhost:8080}")
-    private String allowedOrigins;
-
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
@@ -52,40 +42,6 @@ public class CommonSecurityConfig {
         return new JwtAuthFilter(jwtTokenProvider);
     }
 
-    /**
-     * Retained for compatibility with services that may explicitly reference
-     * this bean. CORS is disabled in the SecurityFilterChain because the
-     * API Gateway is the single CORS authority.
-     */
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration configuration = new CorsConfiguration();
-
-        List<String> origins = Arrays.asList(allowedOrigins.split(","));
-        origins.forEach(origin -> configuration.addAllowedOrigin(origin.trim()));
-
-        configuration.setAllowedMethods(List.of(
-                "GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"
-        ));
-
-        configuration.setAllowedHeaders(List.of("*"));
-
-        configuration.setExposedHeaders(List.of(
-                "Authorization",
-                "Content-Type",
-                "X-Total-Count"
-        ));
-
-        configuration.setAllowCredentials(true);
-        configuration.setMaxAge(3600L);
-
-        UrlBasedCorsConfigurationSource source =
-                new UrlBasedCorsConfigurationSource();
-
-        source.registerCorsConfiguration("/**", configuration);
-
-        return source;
-    }
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
