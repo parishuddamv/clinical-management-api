@@ -45,6 +45,18 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
     }
 
+    @ExceptionHandler(ClinicAccessDeniedException.class)
+    public ResponseEntity<ApiResponse<?>> handleAccessDenied(ClinicAccessDeniedException ex) {
+        ApiResponse<?> response = ApiResponse.error(ex.getMessage());
+        return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);
+    }
+
+    @ExceptionHandler(LimitExceededException.class)
+    public ResponseEntity<ApiResponse<?>> handleLimitExceeded(LimitExceededException ex) {
+        ApiResponse<?> response = ApiResponse.error(ex.getMessage(), ex.toResponseData());
+        return new ResponseEntity<>(response, HttpStatus.CONFLICT);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<?>> handleGlobalException(Exception ex) {
         ApiResponse<?> response = ApiResponse.error("Internal server error: " + ex.getMessage());

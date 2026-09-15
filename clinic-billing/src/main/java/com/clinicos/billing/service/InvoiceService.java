@@ -6,6 +6,8 @@ import com.clinicos.billing.dto.UpdateInvoiceRequest;
 import com.clinicos.billing.entity.Invoice;
 import com.clinicos.billing.entity.Invoice.InvoiceStatus;
 import com.clinicos.billing.repository.InvoiceRepository;
+import com.clinicos.billing.subscription.model.FeatureCode;
+import com.clinicos.billing.subscription.service.SubscriptionService;
 import com.clinicos.common.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,6 +15,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.core.Authentication;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -24,9 +27,11 @@ import java.time.format.DateTimeFormatter;
 public class InvoiceService {
 
     private final InvoiceRepository invoiceRepository;
+    private final SubscriptionService subscriptionService;
 
     @Transactional
-    public InvoiceResponse create(String clinicId, CreateInvoiceRequest request) {
+    public InvoiceResponse create(String clinicId, CreateInvoiceRequest request, Authentication authentication) {
+        subscriptionService.enforceAccess(authentication, FeatureCode.BASIC_BILLING, "MANAGE_BILLING");
         String invoiceNumber = generateInvoiceNumber();
 
         Invoice invoice = Invoice.builder()
@@ -44,13 +49,15 @@ public class InvoiceService {
     }
 
     @Transactional(readOnly = true)
-    public InvoiceResponse getById(String clinicId, Long id) {
+    public InvoiceResponse getById(String clinicId, Long id, Authentication authentication) {
+        subscriptionService.enforceAccess(authentication, FeatureCode.BASIC_BILLING, "VIEW_BILLING");
         Invoice invoice = findByIdAndClinic(clinicId, id);
         return InvoiceResponse.from(invoice);
     }
 
     @Transactional
-    public InvoiceResponse update(String clinicId, Long id, UpdateInvoiceRequest request) {
+    public InvoiceResponse update(String clinicId, Long id, UpdateInvoiceRequest request, Authentication authentication) {
+        subscriptionService.enforceAccess(authentication, FeatureCode.BASIC_BILLING, "MANAGE_BILLING");
         Invoice invoice = findByIdAndClinic(clinicId, id);
 
         if (request.getStatus() != null) {
@@ -70,7 +77,8 @@ public class InvoiceService {
     }
 
     @Transactional(readOnly = true)
-    public Page<InvoiceResponse> getAll(String clinicId, InvoiceStatus status, Long patientId, Pageable pageable) {
+    public Page<InvoiceResponse> getAll(String clinicId, InvoiceStatus status, Long patientId, Pageable pageable, Authentication authentication) {
+        subscriptionService.enforceAccess(authentication, FeatureCode.BASIC_BILLING, "VIEW_BILLING");
         Page<Invoice> page;
         if (status != null && patientId != null) {
             page = invoiceRepository.findByClinicIdAndStatusAndPatientId(clinicId, status, patientId, pageable);
@@ -88,7 +96,8 @@ public class InvoiceService {
      * Get unpaid invoices for the clinic (not paid and not cancelled)
      */
     @Transactional(readOnly = true)
-    public Page<InvoiceResponse> getUnpaidInvoices(String clinicId, Pageable pageable) {
+    public Page<InvoiceResponse> getUnpaidInvoices(String clinicId, Pageable pageable, Authentication authentication) {
+        subscriptionService.enforceAccess(authentication, FeatureCode.BASIC_BILLING, "VIEW_BILLING");
         log.info("Fetching unpaid invoices for clinic: {}", clinicId);
         Page<Invoice> page = invoiceRepository.findUnpaidByClinicId(clinicId, pageable);
         return page.map(InvoiceResponse::from);
@@ -98,7 +107,8 @@ public class InvoiceService {
      * Get overdue invoices for the clinic (unpaid and past due date)
      */
     @Transactional(readOnly = true)
-    public Page<InvoiceResponse> getOverdueInvoices(String clinicId, Pageable pageable) {
+    public Page<InvoiceResponse> getOverdueInvoices(String clinicId, Pageable pageable, Authentication authentication) {
+        subscriptionService.enforceAccess(authentication, FeatureCode.BASIC_BILLING, "VIEW_BILLING");
         LocalDate today = LocalDate.now();
         log.info("Fetching overdue invoices for clinic: {} (before {})", clinicId, today);
         Page<Invoice> page = invoiceRepository.findOverdueByClinicId(clinicId, today, pageable);

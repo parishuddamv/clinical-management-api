@@ -91,6 +91,12 @@ public class GatewayConfig {
                         .filters(f -> f.filter(jwtGatewayFilterFactory.apply(new JwtGatewayFilterFactory.Config())))
                         .uri(billingServiceUrl))
 
+                // Subscription Commerce Routes
+                .route("subscription-service", r -> r
+                        .path("/api/v1/subscriptions/**", "/api/v1/platform/subscriptions/**")
+                        .filters(f -> f.filter(jwtGatewayFilterFactory.apply(new JwtGatewayFilterFactory.Config())))
+                        .uri(billingServiceUrl))
+
                 // EMR Service Routes (Electronic Medical Records & E-Prescription)
                 .route("emr-service", r -> r
                         .path("/api/v1/emr/**")

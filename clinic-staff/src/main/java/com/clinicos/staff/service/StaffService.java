@@ -25,6 +25,7 @@ public class StaffService {
 
     private final StaffMemberRepository staffRepository;
     private final RolePermissionRepository permissionRepository;
+    private final SubscriptionLimitGuardService subscriptionLimitGuardService;
 
     @Transactional
     public StaffMemberDTO createStaff(String clinicId, StaffMemberDTO dto) {
@@ -33,6 +34,8 @@ public class StaffService {
         if (staffRepository.existsByEmailAndClinicId(dto.getEmail(), clinicId)) {
             throw new IllegalArgumentException("Staff with email " + dto.getEmail() + " already exists");
         }
+
+        subscriptionLimitGuardService.validateCreateStaffWithinPlan(clinicId, dto.getRole());
 
         StaffMember staff = StaffMember.builder()
                 .email(dto.getEmail())

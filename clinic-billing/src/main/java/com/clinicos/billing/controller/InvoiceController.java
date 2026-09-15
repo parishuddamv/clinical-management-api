@@ -32,7 +32,7 @@ public class InvoiceController {
             @Valid @RequestBody CreateInvoiceRequest request,
             Authentication authentication) {
         String clinicId = getClinicId(authentication);
-        InvoiceResponse response = invoiceService.create(clinicId, request);
+        InvoiceResponse response = invoiceService.create(clinicId, request, authentication);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Invoice created successfully", response));
     }
@@ -45,7 +45,7 @@ public class InvoiceController {
             @PathVariable Long id,
             Authentication authentication) {
         String clinicId = getClinicId(authentication);
-        InvoiceResponse response = invoiceService.getById(clinicId, id);
+        InvoiceResponse response = invoiceService.getById(clinicId, id, authentication);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -58,7 +58,7 @@ public class InvoiceController {
             @RequestBody UpdateInvoiceRequest request,
             Authentication authentication) {
         String clinicId = getClinicId(authentication);
-        InvoiceResponse response = invoiceService.update(clinicId, id, request);
+        InvoiceResponse response = invoiceService.update(clinicId, id, request, authentication);
         return ResponseEntity.ok(ApiResponse.success("Invoice updated successfully", response));
     }
 
@@ -73,7 +73,7 @@ public class InvoiceController {
             @RequestParam(defaultValue = "20") int size,
             Authentication authentication) {
         String clinicId = getClinicId(authentication);
-        Page<InvoiceResponse> results = invoiceService.getAll(clinicId, status, patientId, PageRequest.of(page, size));
+        Page<InvoiceResponse> results = invoiceService.getAll(clinicId, status, patientId, PageRequest.of(page, size), authentication);
         return ResponseEntity.ok(ApiResponse.success(results));
     }
 
@@ -86,7 +86,7 @@ public class InvoiceController {
             @RequestParam(defaultValue = "20") int size,
             Authentication authentication) {
         String clinicId = getClinicId(authentication);
-        Page<InvoiceResponse> results = invoiceService.getUnpaidInvoices(clinicId, PageRequest.of(page, size));
+        Page<InvoiceResponse> results = invoiceService.getUnpaidInvoices(clinicId, PageRequest.of(page, size), authentication);
         return ResponseEntity.ok(ApiResponse.success(results));
     }
 
@@ -99,7 +99,7 @@ public class InvoiceController {
             @RequestParam(defaultValue = "20") int size,
             Authentication authentication) {
         String clinicId = getClinicId(authentication);
-        Page<InvoiceResponse> results = invoiceService.getOverdueInvoices(clinicId, PageRequest.of(page, size));
+        Page<InvoiceResponse> results = invoiceService.getOverdueInvoices(clinicId, PageRequest.of(page, size), authentication);
         return ResponseEntity.ok(ApiResponse.success(results));
     }
 

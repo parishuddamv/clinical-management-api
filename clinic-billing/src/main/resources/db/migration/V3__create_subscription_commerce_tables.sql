@@ -1,0 +1,254 @@
+-- Subscription commerce foundation for clinic SaaS plans, add-ons, limits, and audit
+
+CREATE TABLE IF NOT EXISTS subscription_plans (
+    id BIGSERIAL PRIMARY KEY,
+    code VARCHAR(30) NOT NULL UNIQUE,
+    display_name VARCHAR(100) NOT NULL,
+    description TEXT,
+    recommended BOOLEAN NOT NULL DEFAULT false,
+    monthly_price DECIMAL(12, 2),
+    annual_price DECIMAL(12, 2),
+    currency_code VARCHAR(10) NOT NULL DEFAULT 'INR',
+    custom_pricing BOOLEAN NOT NULL DEFAULT false,
+    active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS plan_features (
+    id BIGSERIAL PRIMARY KEY,
+    plan_id BIGINT NOT NULL REFERENCES subscription_plans(id) ON DELETE CASCADE,
+    feature_code VARCHAR(60) NOT NULL,
+    CONSTRAINT uk_plan_feature UNIQUE(plan_id, feature_code)
+);
+
+CREATE INDEX IF NOT EXISTS idx_plan_features_plan ON plan_features(plan_id);
+
+CREATE TABLE IF NOT EXISTS plan_limits (
+    id BIGSERIAL PRIMARY KEY,
+    plan_id BIGINT NOT NULL REFERENCES subscription_plans(id) ON DELETE CASCADE,
+    limit_key VARCHAR(40) NOT NULL,
+    max_value INTEGER,
+    CONSTRAINT uk_plan_limit UNIQUE(plan_id, limit_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_plan_limits_plan ON plan_limits(plan_id);
+
+CREATE TABLE IF NOT EXISTS addon_catalog (
+    id BIGSERIAL PRIMARY KEY,
+    code VARCHAR(40) NOT NULL UNIQUE,
+    display_name VARCHAR(100) NOT NULL,
+    feature_code VARCHAR(60) NOT NULL,
+    monthly_price DECIMAL(12, 2),
+    annual_price DECIMAL(12, 2),
+    active BOOLEAN NOT NULL DEFAULT true
+);
+
+CREATE TABLE IF NOT EXISTS clinic_subscriptions (
+    id BIGSERIAL PRIMARY KEY,
+    clinic_id VARCHAR(50) NOT NULL UNIQUE,
+    plan_code VARCHAR(30) NOT NULL,
+    status VARCHAR(30) NOT NULL,
+    billing_cycle VARCHAR(20) NOT NULL,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    renewal_date DATE,
+    trial_start_date DATE,
+    trial_end_date DATE,
+    cancelled_at TIMESTAMP,
+    cancelled_by VARCHAR(120),
+    cancellation_reason TEXT,
+    grace_period_end DATE,
+    auto_renew BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_clinic_subscriptions_status ON clinic_subscriptions(status);
+
+CREATE TABLE IF NOT EXISTS clinic_subscription_addons (
+    id BIGSERIAL PRIMARY KEY,
+    clinic_id VARCHAR(50) NOT NULL,
+    addon_code VARCHAR(40) NOT NULL,
+    active BOOLEAN NOT NULL DEFAULT true,
+    start_date DATE NOT NULL,
+    end_date DATE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uk_clinic_addon UNIQUE(clinic_id, addon_code)
+);
+
+CREATE INDEX IF NOT EXISTS idx_clinic_addons_active ON clinic_subscription_addons(clinic_id, active);
+
+CREATE TABLE IF NOT EXISTS subscription_audit_logs (
+    id BIGSERIAL PRIMARY KEY,
+    clinic_id VARCHAR(50) NOT NULL,
+    action VARCHAR(50) NOT NULL,
+    actor_email VARCHAR(120),
+    actor_role VARCHAR(60),
+    details TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_subscription_audit_clinic_created ON subscription_audit_logs(clinic_id, created_at DESC);
+
+INSERT INTO subscription_plans (code, display_name, description, recommended, monthly_price, annual_price, currency_code, custom_pricing, active)
+VALUES
+('STARTER', 'Starter', 'Essential workflows for single-doctor clinics', false, 999.00, 9990.00, 'INR', false, true),
+('PROFESSIONAL', 'Professional', 'Recommended plan for growing clinics', true, 2499.00, 24990.00, 'INR', false, true),
+('BUSINESS', 'Business', 'Multi-doctor and multi-location optimization', false, 4999.00, 49990.00, 'INR', false, true),
+('ENTERPRISE', 'Enterprise', 'Custom limits and enterprise functionality', false, NULL, NULL, 'INR', true, true)
+ON CONFLICT (code) DO UPDATE SET
+    display_name = EXCLUDED.display_name,
+    description = EXCLUDED.description,
+    recommended = EXCLUDED.recommended,
+    monthly_price = EXCLUDED.monthly_price,
+    annual_price = EXCLUDED.annual_price,
+    currency_code = EXCLUDED.currency_code,
+    custom_pricing = EXCLUDED.custom_pricing,
+    active = EXCLUDED.active,
+    updated_at = CURRENT_TIMESTAMP;
+
+INSERT INTO plan_features (plan_id, feature_code)
+SELECT p.id, f.feature_code
+FROM subscription_plans p
+JOIN (
+    SELECT 'STARTER'::VARCHAR AS plan_code, 'PATIENT_MANAGEMENT'::VARCHAR AS feature_code UNION ALL
+    SELECT 'STARTER', 'APPOINTMENTS' UNION ALL
+    SELECT 'STARTER', 'FOLLOW_UPS' UNION ALL
+    SELECT 'STARTER', 'BASIC_MEDICAL_RECORDS' UNION ALL
+    SELECT 'STARTER', 'BASIC_PRESCRIPTIONS' UNION ALL
+    SELECT 'STARTER', 'BASIC_BILLING' UNION ALL
+    SELECT 'STARTER', 'NOTIFICATIONS' UNION ALL
+    SELECT 'STARTER', 'BASIC_REPORTS' UNION ALL
+    SELECT 'STARTER', 'STAFF_MANAGEMENT' UNION ALL
+
+    SELECT 'PROFESSIONAL', 'PATIENT_MANAGEMENT' UNION ALL
+    SELECT 'PROFESSIONAL', 'APPOINTMENTS' UNION ALL
+    SELECT 'PROFESSIONAL', 'FOLLOW_UPS' UNION ALL
+    SELECT 'PROFESSIONAL', 'BASIC_MEDICAL_RECORDS' UNION ALL
+    SELECT 'PROFESSIONAL', 'BASIC_PRESCRIPTIONS' UNION ALL
+    SELECT 'PROFESSIONAL', 'BASIC_BILLING' UNION ALL
+    SELECT 'PROFESSIONAL', 'NOTIFICATIONS' UNION ALL
+    SELECT 'PROFESSIONAL', 'BASIC_REPORTS' UNION ALL
+    SELECT 'PROFESSIONAL', 'STAFF_MANAGEMENT' UNION ALL
+    SELECT 'PROFESSIONAL', 'ADVANCED_MEDICAL_RECORDS' UNION ALL
+    SELECT 'PROFESSIONAL', 'ADVANCED_PRESCRIPTIONS' UNION ALL
+    SELECT 'PROFESSIONAL', 'LAB_MANAGEMENT' UNION ALL
+    SELECT 'PROFESSIONAL', 'PHARMACY' UNION ALL
+    SELECT 'PROFESSIONAL', 'INVENTORY' UNION ALL
+    SELECT 'PROFESSIONAL', 'ADVANCED_BILLING' UNION ALL
+    SELECT 'PROFESSIONAL', 'ADVANCED_REPORTS' UNION ALL
+    SELECT 'PROFESSIONAL', 'ANALYTICS' UNION ALL
+    SELECT 'PROFESSIONAL', 'WHATSAPP' UNION ALL
+    SELECT 'PROFESSIONAL', 'FILE_MANAGEMENT' UNION ALL
+    SELECT 'PROFESSIONAL', 'AUDIT_HISTORY' UNION ALL
+
+    SELECT 'BUSINESS', 'PATIENT_MANAGEMENT' UNION ALL
+    SELECT 'BUSINESS', 'APPOINTMENTS' UNION ALL
+    SELECT 'BUSINESS', 'FOLLOW_UPS' UNION ALL
+    SELECT 'BUSINESS', 'BASIC_MEDICAL_RECORDS' UNION ALL
+    SELECT 'BUSINESS', 'BASIC_PRESCRIPTIONS' UNION ALL
+    SELECT 'BUSINESS', 'BASIC_BILLING' UNION ALL
+    SELECT 'BUSINESS', 'NOTIFICATIONS' UNION ALL
+    SELECT 'BUSINESS', 'BASIC_REPORTS' UNION ALL
+    SELECT 'BUSINESS', 'STAFF_MANAGEMENT' UNION ALL
+    SELECT 'BUSINESS', 'ADVANCED_MEDICAL_RECORDS' UNION ALL
+    SELECT 'BUSINESS', 'ADVANCED_PRESCRIPTIONS' UNION ALL
+    SELECT 'BUSINESS', 'LAB_MANAGEMENT' UNION ALL
+    SELECT 'BUSINESS', 'PHARMACY' UNION ALL
+    SELECT 'BUSINESS', 'INVENTORY' UNION ALL
+    SELECT 'BUSINESS', 'ADVANCED_BILLING' UNION ALL
+    SELECT 'BUSINESS', 'ADVANCED_REPORTS' UNION ALL
+    SELECT 'BUSINESS', 'ANALYTICS' UNION ALL
+    SELECT 'BUSINESS', 'WHATSAPP' UNION ALL
+    SELECT 'BUSINESS', 'FILE_MANAGEMENT' UNION ALL
+    SELECT 'BUSINESS', 'AUDIT_HISTORY' UNION ALL
+    SELECT 'BUSINESS', 'MULTIPLE_LOCATIONS' UNION ALL
+    SELECT 'BUSINESS', 'ADVANCED_ANALYTICS' UNION ALL
+    SELECT 'BUSINESS', 'TELEMEDICINE' UNION ALL
+    SELECT 'BUSINESS', 'API_INTEGRATIONS' UNION ALL
+    SELECT 'BUSINESS', 'ADVANCED_STAFF_MANAGEMENT' UNION ALL
+
+    SELECT 'ENTERPRISE', 'PATIENT_MANAGEMENT' UNION ALL
+    SELECT 'ENTERPRISE', 'APPOINTMENTS' UNION ALL
+    SELECT 'ENTERPRISE', 'FOLLOW_UPS' UNION ALL
+    SELECT 'ENTERPRISE', 'BASIC_MEDICAL_RECORDS' UNION ALL
+    SELECT 'ENTERPRISE', 'BASIC_PRESCRIPTIONS' UNION ALL
+    SELECT 'ENTERPRISE', 'BASIC_BILLING' UNION ALL
+    SELECT 'ENTERPRISE', 'NOTIFICATIONS' UNION ALL
+    SELECT 'ENTERPRISE', 'BASIC_REPORTS' UNION ALL
+    SELECT 'ENTERPRISE', 'STAFF_MANAGEMENT' UNION ALL
+    SELECT 'ENTERPRISE', 'ADVANCED_MEDICAL_RECORDS' UNION ALL
+    SELECT 'ENTERPRISE', 'ADVANCED_PRESCRIPTIONS' UNION ALL
+    SELECT 'ENTERPRISE', 'LAB_MANAGEMENT' UNION ALL
+    SELECT 'ENTERPRISE', 'PHARMACY' UNION ALL
+    SELECT 'ENTERPRISE', 'INVENTORY' UNION ALL
+    SELECT 'ENTERPRISE', 'ADVANCED_BILLING' UNION ALL
+    SELECT 'ENTERPRISE', 'ADVANCED_REPORTS' UNION ALL
+    SELECT 'ENTERPRISE', 'ANALYTICS' UNION ALL
+    SELECT 'ENTERPRISE', 'WHATSAPP' UNION ALL
+    SELECT 'ENTERPRISE', 'FILE_MANAGEMENT' UNION ALL
+    SELECT 'ENTERPRISE', 'AUDIT_HISTORY' UNION ALL
+    SELECT 'ENTERPRISE', 'MULTIPLE_LOCATIONS' UNION ALL
+    SELECT 'ENTERPRISE', 'ADVANCED_ANALYTICS' UNION ALL
+    SELECT 'ENTERPRISE', 'TELEMEDICINE' UNION ALL
+    SELECT 'ENTERPRISE', 'API_INTEGRATIONS' UNION ALL
+    SELECT 'ENTERPRISE', 'ADVANCED_STAFF_MANAGEMENT'
+) f ON p.code = f.plan_code
+ON CONFLICT DO NOTHING;
+
+INSERT INTO plan_limits (plan_id, limit_key, max_value)
+SELECT p.id, l.limit_key, l.max_value
+FROM subscription_plans p
+JOIN (
+    SELECT 'STARTER'::VARCHAR AS plan_code, 'DOCTORS'::VARCHAR AS limit_key, 1::INTEGER AS max_value UNION ALL
+    SELECT 'STARTER', 'STAFF', 3 UNION ALL
+    SELECT 'STARTER', 'LOCATIONS', 1 UNION ALL
+
+    SELECT 'PROFESSIONAL', 'DOCTORS', 3 UNION ALL
+    SELECT 'PROFESSIONAL', 'STAFF', 10 UNION ALL
+    SELECT 'PROFESSIONAL', 'LOCATIONS', 1 UNION ALL
+
+    SELECT 'BUSINESS', 'DOCTORS', 10 UNION ALL
+    SELECT 'BUSINESS', 'STAFF', 30 UNION ALL
+    SELECT 'BUSINESS', 'LOCATIONS', 5 UNION ALL
+
+    SELECT 'ENTERPRISE', 'DOCTORS', NULL UNION ALL
+    SELECT 'ENTERPRISE', 'STAFF', NULL UNION ALL
+    SELECT 'ENTERPRISE', 'LOCATIONS', NULL
+) l ON p.code = l.plan_code
+ON CONFLICT (plan_id, limit_key) DO UPDATE SET max_value = EXCLUDED.max_value;
+
+INSERT INTO addon_catalog (code, display_name, feature_code, monthly_price, annual_price, active)
+VALUES
+('WHATSAPP', 'WhatsApp', 'WHATSAPP', 499.00, 4990.00, true),
+('PHARMACY', 'Pharmacy', 'PHARMACY', 699.00, 6990.00, true),
+('LAB', 'Lab', 'LAB_MANAGEMENT', 699.00, 6990.00, true),
+('MULTI_LOCATION', 'Multi-location', 'MULTIPLE_LOCATIONS', 999.00, 9990.00, true),
+('ADVANCED_ANALYTICS', 'Advanced Analytics', 'ADVANCED_ANALYTICS', 899.00, 8990.00, true),
+('TELEMEDICINE', 'Telemedicine', 'TELEMEDICINE', 1299.00, 12990.00, true),
+('API_INTEGRATIONS', 'API/Integrations', 'API_INTEGRATIONS', 1499.00, 14990.00, true)
+ON CONFLICT (code) DO UPDATE SET
+    display_name = EXCLUDED.display_name,
+    feature_code = EXCLUDED.feature_code,
+    monthly_price = EXCLUDED.monthly_price,
+    annual_price = EXCLUDED.annual_price,
+    active = EXCLUDED.active;
+
+-- Backward compatibility: existing clinics get Professional access by default.
+INSERT INTO clinic_subscriptions (clinic_id, plan_code, status, billing_cycle, start_date, end_date, renewal_date, grace_period_end, auto_renew)
+SELECT DISTINCT cu.clinic_id,
+       'PROFESSIONAL',
+       'ACTIVE',
+       'MONTHLY',
+       CURRENT_DATE,
+       CURRENT_DATE + INTERVAL '30 day',
+       CURRENT_DATE + INTERVAL '30 day',
+       CURRENT_DATE + INTERVAL '37 day',
+       true
+FROM clinic_users cu
+WHERE cu.clinic_id IS NOT NULL
+ON CONFLICT (clinic_id) DO NOTHING;
+
