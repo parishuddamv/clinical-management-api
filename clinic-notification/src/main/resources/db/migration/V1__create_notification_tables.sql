@@ -13,7 +13,7 @@ CREATE TABLE notifications (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_notifications_clinic_patient ON notifications(clinic_id, patient_id);
+CREATE INDEX idx_notifications_patients ON notifications(clinic_id, patient_id);
 CREATE INDEX idx_notifications_clinic_status ON notifications(clinic_id, status);
 CREATE INDEX idx_notifications_clinic_type ON notifications(clinic_id, type);
 

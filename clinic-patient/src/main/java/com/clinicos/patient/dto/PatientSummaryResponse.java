@@ -1,5 +1,8 @@
 package com.clinicos.patient.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.datatype.jsr310.ser.LocalDateTimeSerializer;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -22,6 +25,8 @@ public class PatientSummaryResponse {
     private String phone;
     private String gender;
     private Boolean isActive;
+    @JsonSerialize(using = LocalDateTimeSerializer.class)
+    @JsonFormat(shape = JsonFormat.Shape.STRING)
     private LocalDateTime createdAt;
 
     public static PatientSummaryResponse fromEntity(Object[] row) {

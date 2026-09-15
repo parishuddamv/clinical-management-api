@@ -11,6 +11,7 @@
     </parent>
 
     <artifactId>clinic-staff</artifactId>
+    <version>1.0.4</version>
     <name>Clinic Staff Management Service</name>
     <description>Multi-Doctor and Staff Management with Roles and Schedules</description>
 
@@ -18,12 +19,16 @@
         <dependency>
             <groupId>com.clinicos</groupId>
             <artifactId>clinic-common</artifactId>
-            <version>${project.version}</version>
+            <version>1.0.0</version>
         </dependency>
 
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+           <groupId>org.springframework.boot</groupId>
+           <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>

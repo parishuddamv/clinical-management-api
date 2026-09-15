@@ -238,7 +238,7 @@ docker logs clinicos-redis
 
 # Check database indexes
 docker exec clinicos-postgres psql -U clinicos_prod_user -d clinicos_db \
-  -c "\d+ clinic_patient"
+  -c "\d+ patients"
 
 # Monitor resource usage
 docker stats

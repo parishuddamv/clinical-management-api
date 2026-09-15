@@ -128,7 +128,7 @@ PUBLIC ROUTES:
 - Emergency contact management
 
 **Database Tables**:
-- `clinic_patient` - Patient core data
+- `patients` - Patient core data
 - `patient_documents` - Medical documents
 - `patient_tags` - Patient categorization
 - `emergency_contacts` - Emergency contact info
@@ -519,7 +519,7 @@ Authentication & Users:
 - demo_booking (new user approval workflow)
 
 Patient Management:
-- clinic_patient (patient core data)
+- patients (patient core data)
 - patient_documents (medical documents)
 - patient_tags (categorization)
 - emergency_contacts (emergency info)

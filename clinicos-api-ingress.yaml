@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: clinicos-api-ingress
+  namespace: clinicos
+  annotations:
+    kubernetes.io/ingress.class: "gce"
+    kubernetes.io/ingress.global-static-ip-name: "clinicos-api-ip"
+    networking.gke.io/managed-certificates: "clinicos-api-cert"
+spec:
+  rules:
+    - host: api.clinisysone.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: clinic-gateway
+                port:
+                  number: 8080

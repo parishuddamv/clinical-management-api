@@ -12,7 +12,6 @@ import org.springframework.security.web.server.SecurityWebFilterChain;
  * Handles:
  * - Authorization rules
  * - CSRF protection
- * 
  * Note: CORS configuration is handled by CorsConfig class
  */
 @Configuration
@@ -25,6 +24,7 @@ public class GatewaySecurityConfig {
     @Bean
     public SecurityWebFilterChain gatewaySecurityFilterChain(ServerHttpSecurity http) {
         http
+                // Do not enable .cors() here; CorsWebFilter already handles CORS globally for the gateway.
                 // CSRF configuration
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
                 // Authorization rules

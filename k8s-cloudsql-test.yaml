@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: cloudsql-test
+  namespace: clinicos
+spec:
+  serviceAccountName: clinicos-cloudsql
+
+  containers:
+    - name: postgres-client
+      image: postgres:15
+      command:
+        - sleep
+        - "3600"
+
+    - name: cloud-sql-proxy
+      image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.18.3
+      args:
+        - "--structured-logs"
+        - "--port=5432"
+        - "clinicos-prod-2026:asia-south1:clinicos-db"
+      securityContext:
+        runAsNonRoot: true

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Claim Gift</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem; text-align: center; }
+    .card { border: 1px solid #ddd; border-radius: 12px; padding: 1.25rem; }
+    input, button { width: 100%; padding: 0.7rem; margin-top: 0.6rem; }
+    button { background: #0a7; color: white; border: none; cursor: pointer; }
+    .muted { color: #666; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🎁 Cash Gift</h1>
+    <h2 id="title">Loading...</h2>
+    <p class="muted" id="statusText"></p>
+
+    <input id="upi" type="text" placeholder="name@upi" />
+    <button onclick="claimGift()">Claim</button>
+    <pre id="result"></pre>
+  </div>
+
+  <script>
+    const token = window.location.pathname.split("/").pop();
+
+    async function loadGift() {
+      const res = await fetch(`/api/gifts/${token}`);
+      const gift = await res.json();
+      if (!res.ok) {
+        document.getElementById("title").textContent = "Gift unavailable";
+        document.getElementById("statusText").textContent = gift.detail || "Not found";
+        return;
+      }
+      document.getElementById("title").textContent = `You have received ₹${gift.amount}`;
+      document.getElementById("statusText").textContent = `Status: ${gift.status}. Expires: ${gift.expires_at}`;
+    }
+
+    async function claimGift() {
+      const upi_id = document.getElementById("upi").value;
+      const res = await fetch(`/api/gifts/${token}/claim`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ upi_id })
+      });
+      const json = await res.json();
+      document.getElementById("result").textContent = JSON.stringify(json, null, 2);
+      if (res.ok) {
+        window.location.href = `/success?claimId=${encodeURIComponent(json.claim_id)}&ref=${encodeURIComponent(json.payout_reference)}`;
+      }
+    }
+
+    loadGift();
+  </script>
+</body>
+</html>
+

@@ -17,6 +17,7 @@ spring:
   flyway:
     enabled: true
     baseline-on-migrate: true
+    table: flyway_schema_history_feedback
     locations: classpath:db/migration
 
 jwt:
@@ -27,7 +28,16 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
 
 logging:
   level:

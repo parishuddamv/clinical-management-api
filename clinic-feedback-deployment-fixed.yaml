@@ -1,0 +1,60 @@
+﻿apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clinic-feedback
+  namespace: clinicos
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: clinic-feedback
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+  template:
+    metadata:
+      labels:
+        app: clinic-feedback
+    spec:
+      containers:
+        - name: clinic-feedback
+          image: asia-south1-docker.pkg.dev/clinicos-prod-2026/clinicos-repo/clinic-feedback:1.0.5
+          imagePullPolicy: Always
+          env:
+            - name: SERVER_PORT
+              value: "8088"
+          envFrom:
+            - configMapRef:
+                name: clinicos-config
+            - secretRef:
+                name: clinicos-secrets
+          ports:
+            - containerPort: 8088
+              protocol: TCP
+          livenessProbe:
+            tcpSocket:
+              port: 8088
+            initialDelaySeconds: 120
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+            successThreshold: 1
+          readinessProbe:
+            tcpSocket:
+              port: 8088
+            initialDelaySeconds: 90
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+            successThreshold: 1
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30

@@ -27,7 +27,7 @@ Complete performance optimization suite for ultra-fast API responses designed fo
 **Techniques Implemented**:
 ```java
 // Native SQL queries for complex operations
-@Query(value = "SELECT p.id, p.first_name, p.last_name, p.phone ... FROM clinic_patient p WHERE ...")
+@Query(value = "SELECT p.id, p.first_name, p.last_name, p.phone ... FROM patients p WHERE ...")
 Page<Patient> searchByName(...);
 
 // Only select necessary columns (projection)
@@ -46,15 +46,15 @@ Page<Patient> searchByName(...);
 **Indexes Created**:
 ```sql
 -- Primary lookup indexes
-CREATE INDEX idx_patient_clinic_id ON clinic_patient(clinic_id);
-CREATE INDEX idx_patient_clinic_active ON clinic_patient(clinic_id, is_active);
+CREATE INDEX idx_patient_clinic_id ON patients(clinic_id);
+CREATE INDEX idx_patient_clinic_active ON patients(clinic_id, is_active);
 
 -- Search optimization
 CREATE INDEX idx_patient_search_name 
-ON clinic_patient(clinic_id, is_active, first_name, last_name);
+ON patients(clinic_id, is_active, first_name, last_name);
 
 -- Foreign key indexes
-CREATE INDEX idx_patient_tag_clinic_patient 
+CREATE INDEX idx_patient_tag_patients 
 ON patient_tag(clinic_id, patient_id);
 
 -- Dashboard queries

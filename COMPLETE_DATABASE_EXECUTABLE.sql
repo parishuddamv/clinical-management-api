@@ -111,7 +111,7 @@ CREATE TABLE IF NOT EXISTS patient_tags (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_patient_tags_clinic_patient ON patient_tags(clinic_id, patient_id);
+CREATE INDEX IF NOT EXISTS idx_patient_tags_patients ON patient_tags(clinic_id, patient_id);
 CREATE INDEX IF NOT EXISTS idx_patient_tags_clinic_tag ON patient_tags(clinic_id, tag);
 
 DO $$
@@ -120,9 +120,9 @@ BEGIN
         SELECT 1 FROM information_schema.table_constraints
         WHERE constraint_type = 'UNIQUE'
         AND table_name = 'patient_tags'
-        AND constraint_name = 'unique_clinic_patient_tag'
+        AND constraint_name = 'unique_patients_tag'
     ) THEN
-        ALTER TABLE patient_tags ADD CONSTRAINT unique_clinic_patient_tag UNIQUE (clinic_id, patient_id, tag);
+        ALTER TABLE patient_tags ADD CONSTRAINT unique_patients_tag UNIQUE (clinic_id, patient_id, tag);
     END IF;
 END
 $$;
@@ -144,7 +144,7 @@ CREATE TABLE IF NOT EXISTS appointments (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_appointments_clinic_patient ON appointments(clinic_id, patient_id);
+CREATE INDEX IF NOT EXISTS idx_appointments_patients ON appointments(clinic_id, patient_id);
 CREATE INDEX IF NOT EXISTS idx_appointments_clinic_datetime ON appointments(clinic_id, appointment_datetime);
 CREATE INDEX IF NOT EXISTS idx_appointments_clinic_status ON appointments(clinic_id, status);
 
@@ -161,7 +161,7 @@ CREATE TABLE IF NOT EXISTS followups (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_followups_clinic_patient ON followups(clinic_id, patient_id);
+CREATE INDEX IF NOT EXISTS idx_followups_patients ON followups(clinic_id, patient_id);
 CREATE INDEX IF NOT EXISTS idx_followups_clinic_duedate ON followups(clinic_id, due_date);
 CREATE INDEX IF NOT EXISTS idx_followups_clinic_status ON followups(clinic_id, status);
 
@@ -432,7 +432,7 @@ CREATE TABLE IF NOT EXISTS invoices (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_invoices_clinic_patient ON invoices(clinic_id, patient_id);
+CREATE INDEX IF NOT EXISTS idx_invoices_patients ON invoices(clinic_id, patient_id);
 CREATE INDEX IF NOT EXISTS idx_invoices_clinic_status ON invoices(clinic_id, status);
 CREATE INDEX IF NOT EXISTS idx_invoices_invoice_number ON invoices(clinic_id, invoice_number);
 
@@ -708,7 +708,7 @@ CREATE TABLE IF NOT EXISTS notifications (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_notifications_clinic_patient ON notifications(clinic_id, patient_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_patients ON notifications(clinic_id, patient_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_clinic_status ON notifications(clinic_id, status);
 CREATE INDEX IF NOT EXISTS idx_notifications_clinic_type ON notifications(clinic_id, type);
 

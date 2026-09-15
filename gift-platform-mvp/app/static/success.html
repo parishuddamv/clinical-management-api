@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gift Claim Submitted</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem; text-align: center; }
+    .card { border: 1px solid #ddd; border-radius: 12px; padding: 1.25rem; }
+    .ok { color: #0a7; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1 class="ok">🎉 Claim Submitted</h1>
+    <p>Your payout request has been sent for processing.</p>
+    <p id="info"></p>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    document.getElementById("info").textContent =
+      `Claim ID: ${params.get("claimId") || "-"} | Payout Ref: ${params.get("ref") || "-"}`;
+  </script>
+</body>
+</html>
+

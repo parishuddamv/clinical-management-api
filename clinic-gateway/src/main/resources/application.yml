@@ -1,54 +1,62 @@
 spring:
   application:
     name: clinic-gateway
-  main:
-    web-application-type: reactive
-    allow-bean-definition-overriding: true
+
   profiles:
-    active: ${SPRING_PROFILES_ACTIVE:local}
+    active: ${SPRING_PROFILES_ACTIVE:prod}
+
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/clinicos_db}
     username: ${DB_USERNAME:clinicos_user}
-    password: ${DB_PASSWORD:clinicos_password}
+    password: ${DB_PASSWORD:}
+    driver-class-name: org.postgresql.Driver
+
     hikari:
       maximum-pool-size: ${DB_POOL_SIZE:10}
-      minimum-idle: 2
+      minimum-idle: ${DB_MIN_IDLE:2}
       connection-timeout: 30000
       idle-timeout: 600000
       max-lifetime: 1800000
+
   jpa:
     hibernate:
       ddl-auto: validate
+    show-sql: false
+    open-in-view: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
         jdbc:
           batch_size: 20
-          fetch_size: 50
         order_inserts: true
         order_updates: true
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    baseline-version: 1
+    baseline-description: "Existing ClinicOS Gateway schema"
+    out-of-order: false
+    table: flyway_schema_history_gateway
+
   cloud:
     gateway:
-      routes: []
-      default-filters:
-        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials
-      discovery:
-        locator:
-          enabled: true
-          lower-case-service-id: true
       httpclient:
-        connect-timeout: 5000
-        response-timeout: 10s
-  jackson:
-    default-property-inclusion: non_null
+        connect-timeout: 3000
+        response-timeout: 5s
 
 server:
   port: ${SERVER_PORT:8080}
+
   compression:
     enabled: true
     min-response-size: 1024
+
   error:
     include-message: always
+    include-binding-errors: always
     include-stacktrace: never
     include-exception: false
 
@@ -56,59 +64,56 @@ app:
   jwt:
     secret: ${JWT_SECRET:your-secret-key-minimum-64-chars-for-hs512-algorithm-security-requirement}
     expiration: ${JWT_EXPIRATION:86400000}
+
   google:
     clientId: ${GOOGLE_CLIENT_ID:}
-    clientSecret: ${GOOGLE_CLIENT_SECRET:}
-    redirectUrl: ${GOOGLE_REDIRECT_URL:}
-  security:
-    cors:
-      allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:8080,http://localhost:8081}
-      allowed-methods: GET,POST,PUT,DELETE,OPTIONS,PATCH
-      max-age: 3600
 
-# Service URLs - defaults to localhost for local development
-# Override with environment variables for Docker deployment
-service:
-  patient:
-    url: ${SERVICE_PATIENT_URL:http://localhost:8081}
-  appointment:
-    url: ${SERVICE_APPOINTMENT_URL:http://localhost:8082}
-  followup:
-    url: ${SERVICE_FOLLOWUP_URL:http://localhost:8083}
-  notification:
-    url: ${SERVICE_NOTIFICATION_URL:http://localhost:8084}
-  billing:
-    url: ${SERVICE_BILLING_URL:http://localhost:8085}
-  emr:
-    url: ${SERVICE_EMR_URL:http://localhost:8086}
-  staff:
-    url: ${SERVICE_STAFF_URL:http://localhost:8087}
-  feedback:
-    url: ${SERVICE_FEEDBACK_URL:http://localhost:8088}
+  security:
+    common-enabled: ${COMMON_SECURITY_ENABLED:false}
+    cors:
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:https://www.clinisysone.com,https://clinisysone.com}
+      allowed-methods: GET,POST,PUT,DELETE,OPTIONS,PATCH,HEAD
+      max-age: 3600
 
 logging:
   level:
     root: ${LOG_LEVEL:WARN}
     com.clinicos: ${LOG_LEVEL_CLINICOS:INFO}
-    org.springframework.cloud.gateway: WARN
-    org.springframework.web: WARN
-    org.springframework.security: WARN
+    org.springframework: WARN
+    org.springframework.security: INFO
+    org.springframework.cloud.gateway: INFO
+    org.hibernate.SQL: WARN
+    org.flywaydb: INFO
+
   pattern:
     console: "%d{ISO8601} [%thread] %-5level %logger{36} - %msg%n"
+
     file: "%d{ISO8601} [%thread] %-5level %logger{36} - %msg%n"
+
   file:
-    name: ${LOG_FILE_PATH:logs/clinic-gateway.log}
+    name: ${LOG_FILE_PATH:/var/log/clinicos/clinic-gateway.log}
     max-size: 10MB
     max-history: 30
+    total-size-cap: 1GB
 
 management:
   endpoints:
     web:
       exposure:
         include: health,info,metrics
+
   endpoint:
     health:
       show-details: when-authorized
+      probes:
+        enabled: true
+
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
+
   metrics:
     export:
       simple:

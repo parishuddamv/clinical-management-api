@@ -35,4 +35,13 @@ management:
   endpoint:
     health:
       show-details: when-authorized
+      probes:
+        enabled: true
+  health:
+    mail:
+      enabled: false
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
 

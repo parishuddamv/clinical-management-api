@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clinic-appointment
+  namespace: clinicos
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: clinic-appointment
+  template:
+    metadata:
+      labels:
+        app: clinic-appointment
+    spec:
+      containers:
+        - name: clinic-appointment
+          image: asia-south1-docker.pkg.dev/clinicos-prod-2026/clinicos-repo/clinic-appointment:1.0.0
+          ports:
+            - containerPort: 8082
+          env:
+            - name: SERVER_PORT
+              value: "8082"
+          envFrom:
+            - configMapRef:
+                name: clinicos-config
+            - secretRef:
+                name: clinicos-secrets
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8082
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8082
+            initialDelaySeconds: 150
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: clinic-appointment
+  namespace: clinicos
+spec:
+  selector:
+    app: clinic-appointment
+  ports:
+    - port: 8082
+      targetPort: 8082

@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gift Admin Dashboard</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 840px; margin: 2rem auto; padding: 0 1rem; }
+    .card { border: 1px solid #ddd; border-radius: 10px; padding: 1rem; margin-bottom: 1rem; }
+    label { display: block; margin-top: 0.5rem; }
+    input, select, button { padding: 0.5rem; margin-top: 0.25rem; }
+    button { cursor: pointer; }
+    .row { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+    .mono { font-family: Consolas, monospace; }
+  </style>
+</head>
+<body>
+  <h1>Gift Admin Dashboard</h1>
+
+  <div class="card">
+    <h3>1) Create Gift</h3>
+    <label>Amount (INR)
+      <input id="amount" type="number" min="1" value="500" />
+    </label>
+    <label>Expires In (hours)
+      <input id="hours" type="number" min="1" value="72" />
+    </label>
+    <button onclick="createGift()">Create gift</button>
+    <pre id="giftResult" class="mono"></pre>
+  </div>
+
+  <div class="card">
+    <h3>2) Fund Gift</h3>
+    <label>Gift ID
+      <input id="giftId" type="text" placeholder="UUID" style="width:100%" />
+    </label>
+    <button onclick="fundGift()">Fund gift</button>
+    <pre id="fundResult" class="mono"></pre>
+  </div>
+
+  <div class="card">
+    <h3>3) Activate (simulate payment webhook)</h3>
+    <label>Payment Reference
+      <input id="paymentRef" type="text" style="width:100%" />
+    </label>
+    <button onclick="activateGift()">Mark payment succeeded</button>
+    <pre id="activateResult" class="mono"></pre>
+  </div>
+
+  <div class="card">
+    <h3>4) QR & Status</h3>
+    <div class="row">
+      <button onclick="loadQr()">Open QR image</button>
+      <button onclick="checkStatus()">Get status</button>
+    </div>
+    <pre id="statusResult" class="mono"></pre>
+  </div>
+
+  <script>
+    const SECRET = "dev_webhook_secret";
+
+    async function hmacHex(secret, message) {
+      const key = await crypto.subtle.importKey(
+        "raw",
+        new TextEncoder().encode(secret),
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["sign"]
+      );
+      const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(message));
+      return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, "0")).join("");
+    }
+
+    async function createGift() {
+      const amount = Number(document.getElementById("amount").value);
+      const expires_in_hours = Number(document.getElementById("hours").value);
+
+      const res = await fetch("/api/gifts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount, currency: "INR", expires_in_hours })
+      });
+      const json = await res.json();
+      document.getElementById("giftResult").textContent = JSON.stringify(json, null, 2);
+      if (json.id) {
+        document.getElementById("giftId").value = json.id;
+      }
+    }
+
+    async function fundGift() {
+      const giftId = document.getElementById("giftId").value;
+      const res = await fetch(`/api/gifts/${giftId}/fund`, { method: "POST" });
+      const json = await res.json();
+      document.getElementById("fundResult").textContent = JSON.stringify(json, null, 2);
+      if (json.payment_reference) {
+        document.getElementById("paymentRef").value = json.payment_reference;
+      }
+    }
+
+    async function activateGift() {
+      const provider_reference = document.getElementById("paymentRef").value;
+      const payload = JSON.stringify({ event_type: "payment.succeeded", provider_reference, status: "SUCCESS" });
+      const sig = await hmacHex(SECRET, payload);
+
+      const res = await fetch("/api/webhooks/payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Webhook-Signature": sig },
+        body: payload
+      });
+      const json = await res.json();
+      document.getElementById("activateResult").textContent = JSON.stringify(json, null, 2);
+    }
+
+    async function loadQr() {
+      const giftId = document.getElementById("giftId").value;
+      window.open(`/api/gifts/${giftId}/qr`, "_blank");
+    }
+
+    async function checkStatus() {
+      const giftId = document.getElementById("giftId").value;
+      const res = await fetch(`/api/gifts/${giftId}/status`);
+      const json = await res.json();
+      document.getElementById("statusResult").textContent = JSON.stringify(json, null, 2);
+    }
+  </script>
+</body>
+</html>
+
