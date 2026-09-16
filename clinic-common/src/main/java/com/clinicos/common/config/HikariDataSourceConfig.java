@@ -23,6 +23,17 @@ public class HikariDataSourceConfig {
         config.setPassword(hikariProperties.getPassword());
 
         /*
+         * Driver is configurable.
+         *
+         * Production:
+         *   org.postgresql.Driver
+         *
+         * Tests:
+         *   org.h2.Driver
+         */
+        config.setDriverClassName(hikariProperties.getDriverClassName());
+
+        /*
          * IMPORTANT:
          * Cloud SQL currently has max_connections = 25.
          *
@@ -49,10 +60,12 @@ public class HikariDataSourceConfig {
 
         config.setAutoCommit(true);
 
-        // PostgreSQL
-        config.setDriverClassName("org.postgresql.Driver");
-
-        // Prepared statement caching
+        /*
+         * PostgreSQL-specific properties.
+         *
+         * These are harmless for H2 tests because Hikari simply
+         * passes them to the configured datasource driver.
+         */
         config.addDataSourceProperty(
                 "cachePreparedStatements", "true");
 
@@ -62,11 +75,9 @@ public class HikariDataSourceConfig {
         config.addDataSourceProperty(
                 "preparedStatementCacheSqlLimit", "2048");
 
-        // TCP keepalive
         config.addDataSourceProperty(
                 "tcpKeepAlives", "true");
 
-        // PostgreSQL connection timeout
         config.addDataSourceProperty(
                 "connectTimeout", "20");
 
@@ -79,6 +90,14 @@ public class HikariDataSourceConfig {
         private String url;
         private String username;
         private String password;
+
+        /*
+         * Production default.
+         *
+         * This means existing GKE configuration does NOT need
+         * to add db.driver-class-name.
+         */
+        private String driverClassName = "org.postgresql.Driver";
 
         /*
          * IMPORTANT:
@@ -110,6 +129,14 @@ public class HikariDataSourceConfig {
 
         public void setPassword(String password) {
             this.password = password;
+        }
+
+        public String getDriverClassName() {
+            return driverClassName;
+        }
+
+        public void setDriverClassName(String driverClassName) {
+            this.driverClassName = driverClassName;
         }
 
         public int getMaximumPoolSize() {
