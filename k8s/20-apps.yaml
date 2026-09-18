@@ -63,7 +63,7 @@ spec:
     spec:
       containers:
         - name: clinic-appointment
-          image: REGISTRY/clinic-appointment:latest
+          image: asia-south1-docker.pkg.dev/clinicos-prod-2026/clinicos-repo/clinic-appointment:latest
           ports: [{ containerPort: 8082 }]
           env:
             - { name: SERVER_PORT, value: "8082" }
@@ -114,7 +114,7 @@ spec:
     spec:
       containers:
         - name: clinic-followup
-          image: REGISTRY/clinic-followup:latest
+          image: asia-south1-docker.pkg.dev/clinicos-prod-2026/clinicos-repo/clinic-followup:latest
           ports: [{ containerPort: 8083 }]
           env:
             - { name: SERVER_PORT, value: "8083" }
@@ -161,7 +161,7 @@ spec:
     spec:
       containers:
         - name: clinic-notification
-          image: REGISTRY/clinic-notification:latest
+          image: asia-south1-docker.pkg.dev/clinicos-prod-2026/clinicos-repo/clinic-notification:latest
           ports: [{ containerPort: 8084 }]
           env:
             - { name: SERVER_PORT, value: "8084" }
@@ -208,7 +208,7 @@ spec:
     spec:
       containers:
         - name: clinic-billing
-          image: REGISTRY/clinic-billing:latest
+          image: asia-south1-docker.pkg.dev/clinicos-prod-2026/clinicos-repo/clinic-billing:latest
           ports: [{ containerPort: 8085 }]
           env:
             - { name: SERVER_PORT, value: "8085" }
@@ -246,7 +246,9 @@ metadata:
   name: clinic-emr
   namespace: clinicos
 spec:
-  replicas: 2
+  replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels: { app: clinic-emr }
   template:
@@ -255,7 +257,7 @@ spec:
     spec:
       containers:
         - name: clinic-emr
-          image: REGISTRY/clinic-emr:latest
+          image: asia-south1-docker.pkg.dev/clinicos-prod-2026/clinicos-repo/clinic-emr:latest
           ports: [{ containerPort: 8086 }]
           env:
             - { name: SERVER_PORT, value: "8086" }
@@ -289,8 +291,11 @@ metadata:
   name: emr-uploads
   namespace: clinicos
 spec:
-  accessModes: ["ReadWriteMany"]
-  resources: { requests: { storage: 20Gi } }
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
 ---
 apiVersion: v1
 kind: Service
@@ -316,7 +321,7 @@ spec:
     spec:
       containers:
         - name: clinic-staff
-          image: REGISTRY/clinic-staff:latest
+          image: asia-south1-docker.pkg.dev/clinicos-prod-2026/clinicos-repo/clinic-staff:latest
           ports: [{ containerPort: 8087 }]
           env:
             - { name: SERVER_PORT, value: "8087" }
@@ -363,7 +368,7 @@ spec:
     spec:
       containers:
         - name: clinic-feedback
-          image: REGISTRY/clinic-feedback:latest
+          image: asia-south1-docker.pkg.dev/clinicos-prod-2026/clinicos-repo/clinic-feedback:latest
           ports: [{ containerPort: 8088 }]
           env:
             - { name: SERVER_PORT, value: "8088" }
