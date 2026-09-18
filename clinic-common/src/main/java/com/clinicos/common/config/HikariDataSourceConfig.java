@@ -104,8 +104,8 @@ public class HikariDataSourceConfig {
          * Defaults are intentionally small because Cloud SQL
          * currently allows only 25 connections.
          */
-        private int maximumPoolSize = 3;
-        private int minimumIdle = 1;
+        private int maximumPoolSize = 2;
+        private int minimumIdle = 0;
 
         public String getUrl() {
             return url;
