@@ -5,6 +5,10 @@ import com.clinicos.common.dto.ClinicUserResponse;
 import com.clinicos.common.dto.RegistrationRequest;
 import com.clinicos.common.dto.UserStatusResponse;
 import com.clinicos.common.service.UserRegistrationService;
+import com.clinicos.common.exception.RegistrationException;
+import com.clinicos.common.entity.RegistrationHistory;
+import org.springframework.data.domain.Page;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
  */
 @Slf4j
 @RestController
+@ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
 public class UserRegistrationController {
@@ -35,7 +40,9 @@ public class UserRegistrationController {
         try {
             ClinicUserResponse response = userRegistrationService.registerUser(request);
             return ResponseEntity.status(HttpStatus.CREATED)
-                    .body(ApiResponse.success("Registration successful! Please wait for approval.", response));
+                    .body(ApiResponse.success("Registration successful. Your request is awaiting Super Admin approval.", response));
+        } catch (RegistrationException e) {
+            throw e;
         } catch (IllegalArgumentException e) {
             log.warn("Registration failed: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.CONFLICT)
@@ -43,7 +50,7 @@ public class UserRegistrationController {
         } catch (Exception e) {
             log.error("Registration error: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ApiResponse.error("Registration failed: " + e.getMessage()));
+                    .body(ApiResponse.error("Registration could not be processed. Please try again later."));
         }
     }
 
@@ -53,10 +60,11 @@ public class UserRegistrationController {
      */
     @GetMapping("/user-status/{email}")
     public ResponseEntity<ApiResponse<UserStatusResponse>> getUserStatus(
-            @PathVariable String email) {
+            @PathVariable String email,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
         log.info("Checking user status for: {}", email);
         try {
-            UserStatusResponse response = userRegistrationService.getUserStatus(email);
+            UserStatusResponse response = userRegistrationService.getUserStatus(email, authorization);
             return ResponseEntity.ok(ApiResponse.success(response));
         } catch (IllegalArgumentException e) {
             log.warn("User status check failed: {}", e.getMessage());
@@ -71,11 +79,14 @@ public class UserRegistrationController {
      */
     @GetMapping("/check-approval/{email}")
     public ResponseEntity<ApiResponse<Boolean>> checkApproval(
-            @PathVariable String email) {
+            @PathVariable String email,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
         log.info("Checking approval status for: {}", email);
         try {
-            boolean isApproved = userRegistrationService.isUserApproved(email);
+            boolean isApproved = userRegistrationService.isUserApproved(email, authorization);
             return ResponseEntity.ok(ApiResponse.success(isApproved));
+        } catch (RegistrationException e) {
+            throw e;
         } catch (Exception e) {
             log.error("Approval check failed: {}", e.getMessage(), e);
             return ResponseEntity.ok(ApiResponse.success(false));
@@ -88,10 +99,11 @@ public class UserRegistrationController {
      */
     @GetMapping("/user/{email}")
     public ResponseEntity<ApiResponse<ClinicUserResponse>> getUser(
-            @PathVariable String email) {
+            @PathVariable String email,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
         log.info("Getting user: {}", email);
         try {
-            ClinicUserResponse response = userRegistrationService.getUser(email);
+            ClinicUserResponse response = userRegistrationService.getUser(email, authorization);
             return ResponseEntity.ok(ApiResponse.success(response));
         } catch (IllegalArgumentException e) {
             log.warn("Get user failed: {}", e.getMessage());
@@ -107,11 +119,11 @@ public class UserRegistrationController {
     @PutMapping("/admin/approve/{email}")
     public ResponseEntity<ApiResponse<ClinicUserResponse>> approveUser(
             @PathVariable String email,
-            @RequestParam String clinicId,
-            @RequestParam String approvedBy) {
+            @RequestParam(required = false) String clinicId,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
         log.info("Approving user: {}", email);
         try {
-            ClinicUserResponse response = userRegistrationService.approveUser(email, clinicId, approvedBy);
+            ClinicUserResponse response = userRegistrationService.approveUser(email, clinicId, authorization);
             return ResponseEntity.ok(ApiResponse.success("User approved successfully", response));
         } catch (IllegalArgumentException e) {
             log.warn("User approval failed: {}", e.getMessage());
@@ -127,11 +139,12 @@ public class UserRegistrationController {
     @PutMapping("/admin/reject/{email}")
     public ResponseEntity<ApiResponse<ClinicUserResponse>> rejectUser(
             @PathVariable String email,
-            @RequestParam String rejectionReason) {
+            @RequestParam(required = false) String rejectionReason,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
         log.info("Rejecting user: {}", email);
         try {
-            ClinicUserResponse response = userRegistrationService.rejectUser(email, rejectionReason);
-            return ResponseEntity.ok(ApiResponse.success("User rejected successfully", response));
+            ClinicUserResponse response = userRegistrationService.rejectUser(email, rejectionReason, authorization);
+            return ResponseEntity.ok(ApiResponse.success("Registration rejected successfully.", response));
         } catch (IllegalArgumentException e) {
             log.warn("User rejection failed: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -145,16 +158,43 @@ public class UserRegistrationController {
      */
     @PutMapping("/admin/suspend/{email}")
     public ResponseEntity<ApiResponse<ClinicUserResponse>> suspendUser(
-            @PathVariable String email) {
+            @PathVariable String email,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
         log.info("Suspending user: {}", email);
         try {
-            ClinicUserResponse response = userRegistrationService.suspendUser(email);
+            ClinicUserResponse response = userRegistrationService.suspendUser(email, authorization);
             return ResponseEntity.ok(ApiResponse.success("User suspended successfully", response));
         } catch (IllegalArgumentException e) {
             log.warn("User suspension failed: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(ApiResponse.error(e.getMessage()));
         }
+    }
+    @GetMapping("/admin/registrations")
+    public ApiResponse<Page<ClinicUserResponse>> registrations(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestParam(required = false) String status, @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
+        return ApiResponse.success(userRegistrationService.registrations(authorization, status, search, page, size));
+    }
+
+    @GetMapping("/admin/registrations/{email}/history")
+    public ApiResponse<Page<RegistrationHistory>> history(@PathVariable String email,
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
+        return ApiResponse.success(userRegistrationService.history(email, authorization, page, size));
+    }
+
+    @PutMapping("/admin/reactivate/{email}")
+    public ApiResponse<ClinicUserResponse> reactivate(@PathVariable String email,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        return ApiResponse.success("User reactivated successfully.", userRegistrationService.reactivateUser(email, authorization));
+    }
+
+    @PutMapping("/admin/review/{email}")
+    public ApiResponse<ClinicUserResponse> review(@PathVariable String email,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        return ApiResponse.success("Registration submitted for review.", userRegistrationService.submitForReview(email, authorization));
     }
 }
 

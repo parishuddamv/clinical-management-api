@@ -13,7 +13,17 @@ import java.util.List;
  * Repository for ClinicUser entity
  */
 @Repository
-public interface ClinicUserRepository extends JpaRepository<ClinicUser, Long> {
+public interface ClinicUserRepository extends JpaRepository<ClinicUser, Long>,
+        org.springframework.data.jpa.repository.JpaSpecificationExecutor<ClinicUser> {
+
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT u FROM ClinicUser u WHERE LOWER(u.email) = LOWER(:email)")
+    Optional<ClinicUser> lockByEmail(@Param("email") String email);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.transaction.annotation.Transactional
+    @Query("UPDATE ClinicUser u SET u.lastLogin = :time WHERE u.id = :id")
+    void recordLogin(@Param("id") Long id, @Param("time") java.time.LocalDateTime time);
 
     /**
      * Find user by email

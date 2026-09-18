@@ -89,6 +89,10 @@ public class ClinicUser {
     @Column(name = "last_login")
     private LocalDateTime lastLogin;
 
+    /** Original submitted fields, including optional demo and practice information (JSON text). */
+    @Column(name = "registration_details", columnDefinition = "TEXT")
+    private String registrationDetails;
+
     @PreUpdate
     public void preUpdate() {
         this.updatedAt = LocalDateTime.now();

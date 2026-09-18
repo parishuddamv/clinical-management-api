@@ -6,6 +6,8 @@ import com.clinicos.common.dto.GoogleUserInfo;
 import com.clinicos.common.entity.ClinicUser;
 import com.clinicos.common.repository.ClinicUserRepository;
 import com.clinicos.common.security.JwtTokenProvider;
+import com.clinicos.common.security.GoogleIdentityVerifier;
+import com.clinicos.common.exception.RegistrationException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,8 +15,6 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.util.Base64;
-import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -30,11 +30,10 @@ public class GoogleAuthService {
     private final JwtTokenProvider jwtTokenProvider;
     private final ObjectMapper objectMapper;
     private final ObjectProvider<ClinicUserRepository> clinicUserRepositoryProvider;
+    private final GoogleIdentityVerifier identityVerifier;
 
     @Value("${app.google.clientId:}")
     private String googleClientId;
-
-    // ...existing code...
 
     /**
      * Verify Google ID Token and authenticate user
@@ -53,18 +52,16 @@ public class GoogleAuthService {
             String idToken = request.getIdToken();
             if (idToken == null || idToken.trim().isEmpty()) {
                 log.error("idToken is null or empty. Request received: clinicId={}", request.getClinicId());
-                throw new IllegalArgumentException("idToken is required. Please send {\"idToken\": \"<your-google-token>\", \"clinicId\": \"CLINIC_001\"}");
+                throw new IllegalArgumentException("idToken is required.");
             }
 
-            // Decode Google ID Token
-            GoogleUserInfo googleUser = decodeGoogleToken(idToken);
-            String normalizedEmail = googleUser.getEmail() == null ? "" : googleUser.getEmail().trim().toLowerCase();
+            // Verify Google signature and identity claims before issuing an application JWT.
+            GoogleUserInfo googleUser = identityVerifier.verify(idToken);
+            String normalizedEmail = googleUser.getEmail().trim().toLowerCase(java.util.Locale.ROOT);
             log.info("Google authentication successful for user: {}", normalizedEmail);
 
-            // Assign clinic (default or from request)
-            String clinicId = request.getClinicId() != null ? 
-                    request.getClinicId() : 
-                    "CLINIC_001";  // Default clinic for now
+            // Only an approved server-side association may supply clinic context.
+            String clinicId = null; // Browser-supplied clinic associations are never trusted.
 
             // Check if user exists and get approval status (only if repository is available)
             ClinicUserRepository repo = clinicUserRepositoryProvider.getIfAvailable();
@@ -83,12 +80,12 @@ public class GoogleAuthService {
                 if (existingUser.isPresent()) {
                     ClinicUser user = existingUser.get();
                     userStatus = user.getStatus().name();
-                    isApproved = user.getStatus() == ClinicUser.UserStatus.APPROVED && user.getIsActive();
+                    isApproved = user.getStatus() == ClinicUser.UserStatus.APPROVED && Boolean.TRUE.equals(user.getIsActive());
                     needsDemoBooking = !isApproved && user.getStatus() != ClinicUser.UserStatus.REJECTED;
                     
                     if (isApproved) {
                         statusMessage = "User approved - welcome back!";
-                        clinicId = (user.getClinicId() == null || user.getClinicId().isBlank()) ? "CLINIC_001" : user.getClinicId();
+                        clinicId = user.getClinicId();
                     } else if (user.getStatus() == ClinicUser.UserStatus.REJECTED) {
                         statusMessage = "Registration rejected: " + user.getRejectionReason();
                     } else if (user.getStatus() == ClinicUser.UserStatus.SUSPENDED) {
@@ -98,8 +95,7 @@ public class GoogleAuthService {
                     }
                     
                     // Update last login
-                    user.setLastLogin(java.time.LocalDateTime.now());
-                    repo.save(user);
+                    repo.recordLogin(user.getId(), java.time.LocalDateTime.now());
                 } else {
                     // New user
                     statusMessage = "New user - please book a demo";
@@ -111,7 +107,7 @@ public class GoogleAuthService {
                 needsDemoBooking = true;
             }
 
-            // Generate JWT token with clinic context (even for unapproved users)
+            // Unapproved users receive identity-only tokens for their own registration status.
             String jwtToken = jwtTokenProvider.generateToken(
                     normalizedEmail,
                     clinicId
@@ -139,44 +135,11 @@ public class GoogleAuthService {
                     .message(statusMessage)
                     .build();
 
+        } catch (RegistrationException | IllegalArgumentException e) {
+            throw e;
         } catch (Exception e) {
             log.error("Google authentication failed: {}", e.getMessage(), e);
-            throw new RuntimeException("Google authentication failed: " + e.getMessage());
-        }
-    }
-
-    /**
-     * Decode Google ID Token without verification (frontend should verify)
-     * In production, implement proper token verification with Google servers
-     * @param idToken Token from Google
-     * @return User information from token
-     */
-    @SuppressWarnings("unchecked")
-    private GoogleUserInfo decodeGoogleToken(String idToken) {
-        try {
-            // Split JWT token
-            String[] parts = idToken.split("\\.");
-            if (parts.length != 3) {
-                throw new IllegalArgumentException("Invalid token format");
-            }
-
-            // Decode payload
-            String payload = new String(Base64.getUrlDecoder().decode(parts[1]));
-            Map<String, Object> claims = objectMapper.readValue(payload, Map.class);
-
-            // Validate audience (client ID)
-            String aud = (String) claims.get("aud");
-            if (aud != null && !aud.equals(googleClientId)) {
-                log.warn("Token audience mismatch. Expected: {}, Got: {}", googleClientId, aud);
-                // In production, reject mismatched audience
-            }
-
-            // Build user info from claims
-            return GoogleUserInfo.fromTokenClaims(claims);
-
-        } catch (Exception e) {
-            log.error("Failed to decode Google token: {}", e.getMessage(), e);
-            throw new RuntimeException("Invalid Google token: " + e.getMessage());
+            throw new RegistrationException(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR, "Google authentication failed. Please try again later.");
         }
     }
 

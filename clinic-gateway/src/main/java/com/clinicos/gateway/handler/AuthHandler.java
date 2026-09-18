@@ -7,6 +7,7 @@ import com.clinicos.common.dto.RegistrationRequest;
 import com.clinicos.common.dto.UserStatusResponse;
 import com.clinicos.common.service.GoogleAuthService;
 import com.clinicos.common.service.UserRegistrationService;
+import com.clinicos.common.exception.RegistrationException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -14,8 +15,8 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
-import org.springframework.web.reactive.function.server.ServerResponse.BodyBuilder;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -38,6 +39,9 @@ public class AuthHandler {
      */
     public Mono<ServerResponse> registerUser(ServerRequest request) {
         return request.bodyToMono(RegistrationRequest.class)
+                .doOnError(e -> log.error("REGISTRATION BODY DESERIALIZATION ERROR", e))
+                .switchIfEmpty(Mono.error(new RegistrationException(HttpStatus.BAD_REQUEST, "Registration body is required.")))
+                .publishOn(Schedulers.boundedElastic())
                 .flatMap(reqBody -> {
                     try {
                         log.info("Registering new user: {}", reqBody.getEmail());
@@ -45,7 +49,9 @@ public class AuthHandler {
                         return ServerResponse
                                 .status(HttpStatus.CREATED)
                                 .contentType(MediaType.APPLICATION_JSON)
-                                .bodyValue(ApiResponse.success("Registration successful! Please wait for approval.", response));
+                                .bodyValue(ApiResponse.success("Registration successful. Your request is awaiting Super Admin approval.", response));
+                    } catch (RegistrationException e) {
+                        return error(e);
                     } catch (IllegalArgumentException e) {
                         log.warn("Registration failed: {}", e.getMessage());
                         return ServerResponse
@@ -57,15 +63,12 @@ public class AuthHandler {
                         return ServerResponse
                                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
                                 .contentType(MediaType.APPLICATION_JSON)
-                                .bodyValue(ApiResponse.error("Registration failed: " + e.getMessage()));
+                                .bodyValue(ApiResponse.error("Registration could not be processed. Please try again later."));
                     }
                 })
                 .onErrorResume(e -> {
-                    log.error("Request processing error: {}", e.getMessage());
-                    return ServerResponse
-                            .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .bodyValue(ApiResponse.error("Request processing error: " + e.getMessage()));
+                    log.error("Request processing error: {}", e.getMessage(), e);
+                    return error(e);
                 });
     }
 
@@ -84,7 +87,7 @@ public class AuthHandler {
             return ServerResponse
                     .status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .contentType(MediaType.APPLICATION_JSON)
-                    .bodyValue(ApiResponse.error("Failed to load Google auth config: " + e.getMessage()));
+                    .bodyValue(ApiResponse.error("Failed to load Google auth config."));
         }
     }
 
@@ -94,6 +97,8 @@ public class AuthHandler {
      */
     public Mono<ServerResponse> authenticateWithGoogle(ServerRequest request) {
         return request.bodyToMono(GoogleAuthRequest.class)
+                .switchIfEmpty(Mono.error(new RegistrationException(HttpStatus.BAD_REQUEST, "Google authentication body is required.")))
+                .publishOn(Schedulers.boundedElastic())
                 .flatMap(reqBody -> {
                     try {
                         log.info("Authenticating Google user request");
@@ -101,6 +106,8 @@ public class AuthHandler {
                                 .ok()
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .bodyValue(ApiResponse.success(googleAuthService.authenticateWithGoogle(reqBody)));
+                    } catch (RegistrationException e) {
+                        return error(e);
                     } catch (IllegalArgumentException e) {
                         log.warn("Google auth validation failed: {}", e.getMessage());
                         return ServerResponse
@@ -112,15 +119,12 @@ public class AuthHandler {
                         return ServerResponse
                                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
                                 .contentType(MediaType.APPLICATION_JSON)
-                                .bodyValue(ApiResponse.error("Google authentication failed: " + e.getMessage()));
+                                .bodyValue(ApiResponse.error("Google authentication failed."));
                     }
                 })
                 .onErrorResume(e -> {
                     log.error("Request processing error for Google auth: {}", e.getMessage(), e);
-                    return ServerResponse
-                            .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .bodyValue(ApiResponse.error("Request processing error: " + e.getMessage()));
+                    return error(e);
                 });
     }
 
@@ -133,11 +137,13 @@ public class AuthHandler {
         log.info("Checking user status for: {}", email);
 
         try {
-            UserStatusResponse response = userRegistrationService.getUserStatus(email);
+            UserStatusResponse response = userRegistrationService.getUserStatus(email, authorization(request));
             return ServerResponse
                     .ok()
                     .contentType(MediaType.APPLICATION_JSON)
                     .bodyValue(ApiResponse.success(response));
+        } catch (RegistrationException e) {
+            return error(e);
         } catch (IllegalArgumentException e) {
             log.warn("User status check failed: {}", e.getMessage());
             return ServerResponse
@@ -149,7 +155,7 @@ public class AuthHandler {
             return ServerResponse
                     .status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .contentType(MediaType.APPLICATION_JSON)
-                    .bodyValue(ApiResponse.error("Error checking status: " + e.getMessage()));
+                    .bodyValue(ApiResponse.error("Unable to check registration status."));
         }
     }
 
@@ -162,17 +168,13 @@ public class AuthHandler {
         log.info("Checking approval status for: {}", email);
 
         try {
-            boolean isApproved = userRegistrationService.isUserApproved(email);
+            boolean isApproved = userRegistrationService.isUserApproved(email, authorization(request));
             return ServerResponse
                     .ok()
                     .contentType(MediaType.APPLICATION_JSON)
                     .bodyValue(ApiResponse.success(isApproved));
         } catch (Exception e) {
-            log.error("Approval check failed: {}", e.getMessage());
-            return ServerResponse
-                    .ok()
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .bodyValue(ApiResponse.success(false));
+            return error(e);
         }
     }
 
@@ -185,11 +187,13 @@ public class AuthHandler {
         log.info("Getting user: {}", email);
 
         try {
-            ClinicUserResponse response = userRegistrationService.getUser(email);
+            ClinicUserResponse response = userRegistrationService.getUser(email, authorization(request));
             return ServerResponse
                     .ok()
                     .contentType(MediaType.APPLICATION_JSON)
                     .bodyValue(ApiResponse.success(response));
+        } catch (RegistrationException e) {
+            return error(e);
         } catch (IllegalArgumentException e) {
             log.warn("Get user failed: {}", e.getMessage());
             return ServerResponse
@@ -201,7 +205,7 @@ public class AuthHandler {
             return ServerResponse
                     .status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .contentType(MediaType.APPLICATION_JSON)
-                    .bodyValue(ApiResponse.error("Error getting user: " + e.getMessage()));
+                    .bodyValue(ApiResponse.error("Unable to retrieve registration."));
         }
     }
 
@@ -211,24 +215,18 @@ public class AuthHandler {
      */
     public Mono<ServerResponse> approveUser(ServerRequest request) {
         String email = request.pathVariable("email");
-        String clinicId = request.queryParam("clinicId").orElse("");
-        String approvedBy = request.queryParam("approvedBy").orElse("");
+        String clinicId = request.queryParam("clinicId").orElse(null);
 
         log.info("Approving user: {}", email);
 
-        if (clinicId.isEmpty() || approvedBy.isEmpty()) {
-            return ServerResponse
-                    .status(HttpStatus.BAD_REQUEST)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .bodyValue(ApiResponse.error("clinicId and approvedBy query parameters are required"));
-        }
-
         try {
-            ClinicUserResponse response = userRegistrationService.approveUser(email, clinicId, approvedBy);
+            ClinicUserResponse response = userRegistrationService.approveUser(email, clinicId, authorization(request));
             return ServerResponse
                     .ok()
                     .contentType(MediaType.APPLICATION_JSON)
                     .bodyValue(ApiResponse.success("User approved successfully", response));
+        } catch (RegistrationException e) {
+            return error(e);
         } catch (IllegalArgumentException e) {
             log.warn("User approval failed: {}", e.getMessage());
             return ServerResponse
@@ -240,7 +238,7 @@ public class AuthHandler {
             return ServerResponse
                     .status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .contentType(MediaType.APPLICATION_JSON)
-                    .bodyValue(ApiResponse.error( "Error approving user: " + e.getMessage()));
+                    .bodyValue(ApiResponse.error("Unable to approve registration."));
         }
     }
 
@@ -250,16 +248,18 @@ public class AuthHandler {
      */
     public Mono<ServerResponse> rejectUser(ServerRequest request) {
         String email = request.pathVariable("email");
-        String rejectionReason = request.queryParam("rejectionReason").orElse("No reason provided");
+        String rejectionReason = request.queryParam("rejectionReason").orElse(null);
 
         log.info("Rejecting user: {}", email);
 
         try {
-            ClinicUserResponse response = userRegistrationService.rejectUser(email, rejectionReason);
+            ClinicUserResponse response = userRegistrationService.rejectUser(email, rejectionReason, authorization(request));
             return ServerResponse
                     .ok()
                     .contentType(MediaType.APPLICATION_JSON)
-                    .bodyValue(ApiResponse.success("User rejected successfully", response));
+                    .bodyValue(ApiResponse.success("Registration rejected successfully.", response));
+        } catch (RegistrationException e) {
+            return error(e);
         } catch (IllegalArgumentException e) {
             log.warn("User rejection failed: {}", e.getMessage());
             return ServerResponse
@@ -271,7 +271,7 @@ public class AuthHandler {
             return ServerResponse
                     .status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .contentType(MediaType.APPLICATION_JSON)
-                    .bodyValue(ApiResponse.error("Error rejecting user: " + e.getMessage()));
+                    .bodyValue(ApiResponse.error("Unable to reject registration."));
         }
     }
 
@@ -284,11 +284,13 @@ public class AuthHandler {
         log.info("Suspending user: {}", email);
 
         try {
-            ClinicUserResponse response = userRegistrationService.suspendUser(email);
+            ClinicUserResponse response = userRegistrationService.suspendUser(email, authorization(request));
             return ServerResponse
                     .ok()
                     .contentType(MediaType.APPLICATION_JSON)
                     .bodyValue(ApiResponse.success("User suspended successfully", response));
+        } catch (RegistrationException e) {
+            return error(e);
         } catch (IllegalArgumentException e) {
             log.warn("User suspension failed: {}", e.getMessage());
             return ServerResponse
@@ -300,8 +302,63 @@ public class AuthHandler {
             return ServerResponse
                     .status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .contentType(MediaType.APPLICATION_JSON)
-                    .bodyValue(ApiResponse.error("Error suspending user: " + e.getMessage()));
+                    .bodyValue(ApiResponse.error("Unable to suspend user."));
         }
+    }
+    public Mono<ServerResponse> registrations(ServerRequest request) {
+        return operation(() -> userRegistrationService.registrations(authorization(request),
+                request.queryParam("status").orElse(null), request.queryParam("search").orElse(null),
+                page(request, "page", 0), page(request, "size", 20)), "Success");
+    }
+
+    public Mono<ServerResponse> history(ServerRequest request) {
+        return operation(() -> userRegistrationService.history(request.pathVariable("email"), authorization(request),
+                page(request, "page", 0), page(request, "size", 20)), "Success");
+    }
+
+    public Mono<ServerResponse> reactivateUser(ServerRequest request) {
+        return operation(() -> userRegistrationService.reactivateUser(request.pathVariable("email"), authorization(request)),
+                "User reactivated successfully.");
+    }
+
+    public Mono<ServerResponse> submitForReview(ServerRequest request) {
+        return operation(() -> userRegistrationService.submitForReview(request.pathVariable("email"), authorization(request)),
+                "Registration submitted for review.");
+    }
+
+    private Mono<ServerResponse> operation(java.util.concurrent.Callable<?> action, String message) {
+        return Mono.fromCallable(action).subscribeOn(Schedulers.boundedElastic())
+                .flatMap(value -> ServerResponse.ok().contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(ApiResponse.success(message, value)))
+                .onErrorResume(this::error);
+    }
+
+    private String authorization(ServerRequest request) {
+        return request.headers().firstHeader("Authorization");
+    }
+
+    private int page(ServerRequest request, String key, int fallback) {
+        try {
+            return Integer.parseInt(request.queryParam(key).orElse(String.valueOf(fallback)));
+        } catch (NumberFormatException e) {
+            throw new RegistrationException(HttpStatus.BAD_REQUEST, "Invalid pagination parameters.");
+        }
+    }
+
+    private Mono<ServerResponse> error(Throwable e) {
+        HttpStatus status = HttpStatus.INTERNAL_SERVER_ERROR;
+        String message = "Request could not be processed. Please try again later.";
+        if (e instanceof RegistrationException registration) {
+            status = registration.getStatus();
+            message = registration.getMessage();
+        } else if (e instanceof org.springframework.web.server.ServerWebInputException
+                || e instanceof org.springframework.core.codec.DecodingException) {
+            status = HttpStatus.BAD_REQUEST;
+            message = "Invalid request body.";
+        } else {
+            log.error("Request processing error: {}", e.getMessage(), e);
+        }
+        return ServerResponse.status(status).contentType(MediaType.APPLICATION_JSON).bodyValue(ApiResponse.error(message));
     }
 }
 

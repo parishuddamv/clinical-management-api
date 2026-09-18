@@ -23,13 +23,17 @@ public class RegistrationRequest {
 
     @NotBlank(message = "Email is required")
     @Email(message = "Email must be valid")
+    @Size(max = 100)
     private String email;
 
     @NotBlank(message = "Role is required")
+    @Pattern(regexp = "ADMIN|DOCTOR|RECEPTIONIST|NURSE|LAB_TECHNICIAN|PHARMACIST|ACCOUNTANT|MANAGER|BILLING",
+            message = "Select a supported clinic role; Super Admin cannot be requested")
     private String role; // ADMIN, DOCTOR, RECEPTIONIST, etc.
 
     @NotBlank(message = "Phone is required")
-    @Pattern(regexp = "^[0-9\\-\\+\\s()]+$", message = "Phone must be a valid phone number")
+    @Size(min = 7, max = 20)
+    @Pattern(regexp = "^(?=(?:[^0-9]*[0-9]){7,15}[^0-9]*$)\\+?[0-9\\- ()]+$", message = "Phone must contain 7-15 digits")
     private String phone;
 
     @NotBlank(message = "Clinic name is required")
@@ -38,6 +42,7 @@ public class RegistrationRequest {
 
     private String clinicAddress;
 
+    @Size(max = 20)
     private String clinicPhone;
 
     private LocalDate demoDate;

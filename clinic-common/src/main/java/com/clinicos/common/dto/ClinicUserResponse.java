@@ -53,6 +53,8 @@ public class ClinicUserResponse {
 
     private LocalDateTime lastLogin;
 
+    private String registrationDetails;
+
     /**
      * Convert entity to response DTO
      */
@@ -76,6 +78,7 @@ public class ClinicUserResponse {
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
                 .lastLogin(user.getLastLogin())
+                .registrationDetails(user.getRegistrationDetails())
                 .build();
     }
 }

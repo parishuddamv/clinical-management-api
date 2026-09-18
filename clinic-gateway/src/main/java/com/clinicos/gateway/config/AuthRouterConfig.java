@@ -26,7 +26,14 @@ public class AuthRouterConfig {
                 .andRoute(GET("/api/v1/auth/user/{email}"), authHandler::getUser)
                 .andRoute(PUT("/api/v1/auth/admin/approve/{email}"), authHandler::approveUser)
                 .andRoute(PUT("/api/v1/auth/admin/reject/{email}"), authHandler::rejectUser)
-                .andRoute(PUT("/api/v1/auth/admin/suspend/{email}"), authHandler::suspendUser);
+                .andRoute(PUT("/api/v1/auth/admin/suspend/{email}"), authHandler::suspendUser)
+                .andRoute(GET("/api/v1/auth/admin/registrations"), authHandler::registrations)
+                .andRoute(GET("/api/v1/auth/admin/registrations/{email}/history"), authHandler::history)
+                .andRoute(PUT("/api/v1/auth/admin/reactivate/{email}"), authHandler::reactivateUser)
+                .andRoute(PUT("/api/v1/auth/admin/review/{email}"), authHandler::submitForReview)
+                // Existing handlers perform blocking JPA operations; never execute them on Netty's event loop.
+                .filter((request, next) -> reactor.core.publisher.Mono.defer(() -> next.handle(request))
+                        .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic()));
     }
 }
 

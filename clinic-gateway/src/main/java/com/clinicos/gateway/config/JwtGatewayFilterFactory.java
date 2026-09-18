@@ -18,10 +18,13 @@ public class JwtGatewayFilterFactory
         extends AbstractGatewayFilterFactory<JwtGatewayFilterFactory.Config> {
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final com.clinicos.common.security.RegistrationAccess registrationAccess;
 
-    public JwtGatewayFilterFactory(JwtTokenProvider jwtTokenProvider) {
+    public JwtGatewayFilterFactory(JwtTokenProvider jwtTokenProvider,
+            com.clinicos.common.security.RegistrationAccess registrationAccess) {
         super(Config.class);
         this.jwtTokenProvider = jwtTokenProvider;
+        this.registrationAccess = registrationAccess;
     }
 
     @Override
@@ -135,7 +138,11 @@ public class JwtGatewayFilterFactory
                                 )
                                 .build();
 
-                return chain.filter(mutatedExchange);
+                return Mono.fromCallable(() -> registrationAccess.requireClinicAccess(authHeader, clinicId))
+                        .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
+                        .onErrorResume(e -> onError(exchange, "Approved, active clinic membership is required",
+                                HttpStatus.FORBIDDEN).then(Mono.empty()))
+                        .flatMap(user -> chain.filter(mutatedExchange));
 
             } catch (Exception e) {
 

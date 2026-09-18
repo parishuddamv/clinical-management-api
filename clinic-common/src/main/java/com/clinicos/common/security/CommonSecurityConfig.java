@@ -31,6 +31,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class CommonSecurityConfig {
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final RegistrationAccess registrationAccess;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -44,7 +45,7 @@ public class CommonSecurityConfig {
 
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http, com.fasterxml.jackson.databind.ObjectMapper objectMapper) throws Exception {
         http
                 // Disable CSRF for stateless API
                 .csrf(csrf -> csrf.disable())
@@ -59,6 +60,17 @@ public class CommonSecurityConfig {
 
                 // Configure authorization
                 .authorizeHttpRequests(authz -> authz
+                        .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers("/api/v1/auth/admin/**").access((authentication, context) -> {
+                            boolean allowed;
+                            try {
+                                registrationAccess.requireSuperAdmin(context.getRequest().getHeader("Authorization"));
+                                allowed = true;
+                            } catch (RuntimeException e) {
+                                allowed = false;
+                            }
+                            return new org.springframework.security.authorization.AuthorizationDecision(allowed);
+                        })
                         .requestMatchers(
                                 "/api/v1/auth/**",
                                 "/health",
@@ -73,6 +85,17 @@ public class CommonSecurityConfig {
                         UsernamePasswordAuthenticationFilter.class
                 );
 
+        http.exceptionHandling(errors -> errors
+                .authenticationEntryPoint((request, response, ex) -> {
+                    response.setStatus(request.getRequestURI().startsWith("/api/v1/auth/admin/") ? 403 : 401);
+                    response.setContentType("application/json");
+                    objectMapper.writeValue(response.getWriter(), com.clinicos.common.dto.ApiResponse.error("Authorization is required."));
+                })
+                .accessDeniedHandler((request, response, ex) -> {
+                    response.setStatus(403);
+                    response.setContentType("application/json");
+                    objectMapper.writeValue(response.getWriter(), com.clinicos.common.dto.ApiResponse.error("Access denied."));
+                }));
         return http.build();
     }
 }

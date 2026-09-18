@@ -17,6 +17,18 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(RegistrationException.class)
+    public ResponseEntity<ApiResponse<?>> handleRegistration(RegistrationException ex) {
+        return ResponseEntity.status(ex.getStatus()).body(ApiResponse.error(ex.getMessage()));
+    }
+
+    @ExceptionHandler({org.springframework.http.converter.HttpMessageNotReadableException.class,
+            org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class,
+            org.springframework.web.bind.MissingServletRequestParameterException.class})
+    public ResponseEntity<ApiResponse<?>> handleMalformedRequest(Exception ex) {
+        return ResponseEntity.badRequest().body(ApiResponse.error("Invalid request body or parameters."));
+    }
+
     @ExceptionHandler(ClinicOSException.class)
     public ResponseEntity<ApiResponse<?>> handleClinicOSException(ClinicOSException ex) {
         ApiResponse<?> response = ApiResponse.error(ex.getMessage());
@@ -47,7 +59,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<?>> handleGlobalException(Exception ex) {
-        ApiResponse<?> response = ApiResponse.error("Internal server error: " + ex.getMessage());
+        org.slf4j.LoggerFactory.getLogger(GlobalExceptionHandler.class).error("Request failed", ex);
+        ApiResponse<?> response = ApiResponse.error("Internal server error. Please try again later.");
         return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 }
