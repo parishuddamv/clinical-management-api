@@ -118,6 +118,10 @@ jobs:
             ./clinic-emr
 
           docker build \
+            -t $REGISTRY/clinic-subscription:${GITHUB_SHA} \
+            ./clinic-subscription
+
+          docker build \
             -t $REGISTRY/clinic-staff:${GITHUB_SHA} \
             ./clinic-staff
 
@@ -147,6 +151,8 @@ jobs:
           docker push $REGISTRY/clinic-billing:${GITHUB_SHA}
 
           docker push $REGISTRY/clinic-emr:${GITHUB_SHA}
+
+          docker push $REGISTRY/clinic-subscription:${GITHUB_SHA}
 
           docker push $REGISTRY/clinic-staff:${GITHUB_SHA}
 
@@ -229,6 +235,11 @@ jobs:
           kubectl -n $NAMESPACE set image deployment/clinic-emr \
             clinic-emr=$REGISTRY/clinic-emr:${GITHUB_SHA}
 
+      - name: Deploy clinic-subscription
+        run: |
+          kubectl -n $NAMESPACE set image deployment/clinic-subscription \
+            clinic-subscription=$REGISTRY/clinic-subscription:${GITHUB_SHA}
+
       - name: Deploy clinic-staff
         run: |
           kubectl -n $NAMESPACE set image deployment/clinic-staff \
@@ -273,6 +284,10 @@ jobs:
 
           kubectl -n $NAMESPACE rollout status \
             deployment/clinic-emr \
+            --timeout=5m
+
+          kubectl -n $NAMESPACE rollout status \
+            deployment/clinic-subscription \
             --timeout=5m
 
           kubectl -n $NAMESPACE rollout status \

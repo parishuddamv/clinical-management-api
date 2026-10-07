@@ -89,7 +89,9 @@ public class StaffMember extends BaseEntity {
         NURSE,
         LAB_TECHNICIAN,
         PHARMACIST,
-        ACCOUNTANT
+        ACCOUNTANT,
+        MANAGER,
+        BILLING
     }
 
     public enum StaffStatus {

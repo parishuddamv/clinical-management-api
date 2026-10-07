@@ -4,8 +4,11 @@ import com.clinicos.staff.dto.StaffMemberDTO;
 import com.clinicos.staff.entity.StaffMember;
 import com.clinicos.staff.entity.StaffMember.StaffRole;
 import com.clinicos.staff.entity.StaffMember.StaffStatus;
+import com.clinicos.staff.entity.StaffRequest;
+import com.clinicos.staff.entity.StaffRequest.StaffRequestStatus;
 import com.clinicos.staff.repository.RolePermissionRepository;
 import com.clinicos.staff.repository.StaffMemberRepository;
+import com.clinicos.staff.repository.StaffRequestRepository;
 import com.clinicos.common.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,14 +27,87 @@ import java.util.stream.Collectors;
 public class StaffService {
 
     private final StaffMemberRepository staffRepository;
+    private final StaffRequestRepository staffRequestRepository;
     private final RolePermissionRepository permissionRepository;
+    private final SubscriptionClient subscriptionClient;
 
-    @Transactional
-    public StaffMemberDTO createStaff(String clinicId, StaffMemberDTO dto) {
+    @Transactional(noRollbackFor = StaffSeatLimitExceededException.class)
+    public StaffMemberDTO createStaff(
+            String clinicId,
+            StaffMemberDTO dto,
+            String authorizationHeader,
+            String requestedBy) {
+
         log.info("Creating staff member: {} in clinic: {}", dto.getEmail(), clinicId);
 
+        if (clinicId == null || clinicId.isBlank()) {
+            throw new IllegalArgumentException("Clinic ID is required");
+        }
+
         if (staffRepository.existsByEmailAndClinicId(dto.getEmail(), clinicId)) {
-            throw new IllegalArgumentException("Staff with email " + dto.getEmail() + " already exists");
+            throw new IllegalArgumentException(
+                    "Staff with email " + dto.getEmail() + " already exists");
+        }
+
+        /*
+         * Check the clinic's subscription seat entitlement before creating
+         * an active staff member.
+         */
+        SubscriptionClient.SubscriptionInfo subscription =
+                subscriptionClient.getCurrentSubscription(authorizationHeader);
+
+        Long seatLimit = subscription.staffSeatLimit();
+
+        long activeSeats = staffRepository.countByClinicIdAndStatus(
+                clinicId,
+                StaffStatus.ACTIVE);
+
+        /*
+         * NULL seat limit means unlimited seats (Enterprise).
+         * Otherwise, once the purchased seat count is reached, create
+         * an approval request instead of creating the staff member.
+         */
+        if (seatLimit != null && activeSeats >= seatLimit) {
+
+            if (staffRequestRepository.existsByClinicIdAndEmailIgnoreCaseAndStatus(
+                    clinicId,
+                    dto.getEmail(),
+                    StaffRequestStatus.PENDING_APPROVAL)) {
+
+                throw new StaffSeatLimitExceededException(
+                        "A staff approval request already exists for "
+                                + dto.getEmail(),
+                        null,
+                        activeSeats,
+                        seatLimit);
+            }
+
+            StaffRequest request = StaffRequest.builder()
+                    .clinicId(clinicId)
+                    .userId(null)
+                    .email(dto.getEmail())
+                    .firstName(dto.getFirstName())
+                    .lastName(dto.getLastName())
+                    .phone(dto.getPhone())
+                    .requestedRole(dto.getRole())
+                    .requestedBy(requestedBy)
+                    .status(StaffRequestStatus.PENDING_APPROVAL)
+                    .approvalRequired(true)
+                    .build();
+
+            request = staffRequestRepository.save(request);
+
+            log.info(
+                    "Staff seat limit reached for clinic {}. Approval request {} created for {}",
+                    clinicId,
+                    request.getId(),
+                    dto.getEmail());
+
+            throw new StaffSeatLimitExceededException(
+                    "Staff seat limit reached. Approval is required before adding another staff member.",
+                    request.getId(),
+                    activeSeats,
+                    seatLimit);
         }
 
         StaffMember staff = StaffMember.builder()
@@ -148,7 +224,9 @@ public class StaffService {
     }
 
     private StaffMemberDTO mapToDTO(StaffMember staff, String clinicId) {
-        Set<String> permissions = permissionRepository.findPermissionsByRole(clinicId, staff.getRole().name());
+        Set<String> permissions = permissionRepository.findPermissionsByRole(
+                clinicId,
+                staff.getRole().name());
 
         return StaffMemberDTO.builder()
                 .id(staff.getId())
@@ -177,4 +255,3 @@ public class StaffService {
                 .build();
     }
 }
-

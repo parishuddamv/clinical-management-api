@@ -37,6 +37,7 @@
         <module>clinic-emr</module>
         <module>clinic-staff</module>
         <module>clinic-feedback</module>
+        <module>clinic-subscription</module>
         <module>clinic-gateway</module>
     </modules>
 

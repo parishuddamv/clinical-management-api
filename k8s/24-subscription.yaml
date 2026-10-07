@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clinic-subscription
+  namespace: clinicos
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: clinic-subscription
+  template:
+    metadata:
+      labels:
+        app: clinic-subscription
+    spec:
+      containers:
+        - name: clinic-subscription
+          image: asia-south1-docker.pkg.dev/clinicos-prod-2026/clinicos-repo/clinic-subscription:1.0.0
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8089
+
+          envFrom:
+            - configMapRef:
+                name: clinicos-config
+            - secretRef:
+                name: clinicos-secrets
+
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8089
+              scheme: HTTP
+            failureThreshold: 40
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8089
+              scheme: HTTP
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8089
+              scheme: HTTP
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "512Mi"
+            limits:
+              cpu: "500m"
+              memory: "1Gi"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: clinic-subscription
+  namespace: clinicos
+spec:
+  type: ClusterIP
+  selector:
+    app: clinic-subscription
+  ports:
+    - protocol: TCP
+      port: 8089
+      targetPort: 8089

@@ -3,6 +3,7 @@ package com.clinicos.staff.controller;
 import com.clinicos.staff.dto.StaffMemberDTO;
 import com.clinicos.staff.entity.StaffMember.StaffRole;
 import com.clinicos.staff.service.StaffService;
+import com.clinicos.staff.service.StaffSeatLimitExceededException;
 import com.clinicos.common.dto.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -28,9 +29,14 @@ public class StaffController {
     @PostMapping
     public ResponseEntity<ApiResponse<StaffMemberDTO>> createStaff(
             @Valid @RequestBody StaffMemberDTO dto,
-            Authentication authentication) {
+            Authentication authentication,
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
         String clinicId = getClinicId(authentication);
-        StaffMemberDTO response = staffService.createStaff(clinicId, dto);
+        StaffMemberDTO response = staffService.createStaff(
+                clinicId,
+                dto,
+                authorizationHeader,
+                authentication.getName());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Staff member created successfully", response));
     }
@@ -130,6 +136,21 @@ public class StaffController {
         return ResponseEntity.ok(ApiResponse.success(hasPermission));
     }
 
+    @ExceptionHandler(StaffSeatLimitExceededException.class)
+    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> handleStaffSeatLimitExceeded(
+            StaffSeatLimitExceededException ex) {
+
+        java.util.Map<String, Object> data = new java.util.LinkedHashMap<>();
+        data.put("requestId", ex.getRequestId());
+        data.put("currentSeats", ex.getCurrentSeats());
+        data.put("seatLimit", ex.getSeatLimit());
+        data.put("status", "PENDING_APPROVAL");
+
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .body(ApiResponse.success(
+                        "Staff seat limit reached. Approval request submitted to Super Admin.",
+                        data));
+    }
     private String getClinicId(Authentication authentication) {
         return (String) authentication.getDetails();
     }
