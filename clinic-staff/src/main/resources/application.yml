@@ -62,4 +62,4 @@ logging:
 debug: true
 services:
   subscription:
-    url: ${SUBSCRIPTION_SERVICE_URL:http://localhost:8089}
+    url: ${SERVICE_SUBSCRIPTION_URL:http://localhost:8089}
