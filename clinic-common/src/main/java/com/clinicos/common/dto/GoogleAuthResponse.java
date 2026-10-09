@@ -38,6 +38,6 @@ public class GoogleAuthResponse {
         private String name;           // Full name
         private String picture;        // Profile picture URL
         private String clinicId;       // Assigned clinic
+        private String role;          // User role
     }
 }
-

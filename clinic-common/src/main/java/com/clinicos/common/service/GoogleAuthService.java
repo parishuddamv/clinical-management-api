@@ -69,6 +69,7 @@ public class GoogleAuthService {
             boolean isApproved = false;
             String userStatus = "NEW";
             boolean needsDemoBooking = false;
+            String userRole = null;
             String statusMessage = "New user - please book a demo";
 
             if (repo != null) {
@@ -81,6 +82,7 @@ public class GoogleAuthService {
                     ClinicUser user = existingUser.get();
                     userStatus = user.getStatus().name();
                     isApproved = user.getStatus() == ClinicUser.UserStatus.APPROVED && Boolean.TRUE.equals(user.getIsActive());
+                    userRole = Boolean.TRUE.equals(user.getIsSuperAdmin()) ? "SUPER_ADMIN" : user.getRole();
                     needsDemoBooking = !isApproved && user.getStatus() != ClinicUser.UserStatus.REJECTED;
                     
                     if (isApproved) {
@@ -125,6 +127,7 @@ public class GoogleAuthService {
                             .name(googleUser.getName())
                             .picture(googleUser.getPicture())
                             .clinicId(clinicId)
+                            .role(userRole)
                             .build())
                     .clinicId(clinicId)
                     .expiresIn(86400)  // 24 hours
@@ -165,4 +168,3 @@ public class GoogleAuthService {
         private String[] scopes;
     }
 }
-
