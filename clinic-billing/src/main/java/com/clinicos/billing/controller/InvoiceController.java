@@ -1,10 +1,13 @@
 package com.clinicos.billing.controller;
 
 import com.clinicos.billing.dto.CreateInvoiceRequest;
+import com.clinicos.billing.dto.CreatePaymentRequest;
 import com.clinicos.billing.dto.InvoiceResponse;
+import com.clinicos.billing.dto.PaymentResponse;
 import com.clinicos.billing.dto.UpdateInvoiceRequest;
 import com.clinicos.billing.entity.Invoice.InvoiceStatus;
 import com.clinicos.billing.service.InvoiceService;
+import com.clinicos.billing.service.PaymentService;
 import com.clinicos.common.dto.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +26,7 @@ import org.springframework.web.bind.annotation.*;
 public class InvoiceController {
 
     private final InvoiceService invoiceService;
+    private final PaymentService paymentService;
 
     /**
      * POST /api/v1/billing
@@ -31,10 +35,16 @@ public class InvoiceController {
     public ResponseEntity<ApiResponse<InvoiceResponse>> create(
             @Valid @RequestBody CreateInvoiceRequest request,
             Authentication authentication) {
+
         String clinicId = getClinicId(authentication);
-        InvoiceResponse response = invoiceService.create(clinicId, request);
+
+        InvoiceResponse response =
+                invoiceService.create(clinicId, request);
+
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("Invoice created successfully", response));
+                .body(ApiResponse.success(
+                        "Invoice created successfully",
+                        response));
     }
 
     /**
@@ -44,9 +54,14 @@ public class InvoiceController {
     public ResponseEntity<ApiResponse<InvoiceResponse>> getById(
             @PathVariable Long id,
             Authentication authentication) {
+
         String clinicId = getClinicId(authentication);
-        InvoiceResponse response = invoiceService.getById(clinicId, id);
-        return ResponseEntity.ok(ApiResponse.success(response));
+
+        InvoiceResponse response =
+                invoiceService.getById(clinicId, id);
+
+        return ResponseEntity.ok(
+                ApiResponse.success(response));
     }
 
     /**
@@ -57,9 +72,16 @@ public class InvoiceController {
             @PathVariable Long id,
             @RequestBody UpdateInvoiceRequest request,
             Authentication authentication) {
+
         String clinicId = getClinicId(authentication);
-        InvoiceResponse response = invoiceService.update(clinicId, id, request);
-        return ResponseEntity.ok(ApiResponse.success("Invoice updated successfully", response));
+
+        InvoiceResponse response =
+                invoiceService.update(clinicId, id, request);
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "Invoice updated successfully",
+                        response));
     }
 
     /**
@@ -72,35 +94,103 @@ public class InvoiceController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             Authentication authentication) {
+
         String clinicId = getClinicId(authentication);
-        Page<InvoiceResponse> results = invoiceService.getAll(clinicId, status, patientId, PageRequest.of(page, size));
-        return ResponseEntity.ok(ApiResponse.success(results));
+
+        Page<InvoiceResponse> results =
+                invoiceService.getAll(
+                        clinicId,
+                        status,
+                        patientId,
+                        PageRequest.of(page, size));
+
+        return ResponseEntity.ok(
+                ApiResponse.success(results));
     }
 
     /**
-     * GET /api/v1/billing/unpaid - Get unpaid invoices for the dashboard
+     * GET /api/v1/billing/unpaid
      */
     @GetMapping("/unpaid")
     public ResponseEntity<ApiResponse<Page<InvoiceResponse>>> getUnpaidInvoices(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             Authentication authentication) {
+
         String clinicId = getClinicId(authentication);
-        Page<InvoiceResponse> results = invoiceService.getUnpaidInvoices(clinicId, PageRequest.of(page, size));
-        return ResponseEntity.ok(ApiResponse.success(results));
+
+        Page<InvoiceResponse> results =
+                invoiceService.getUnpaidInvoices(
+                        clinicId,
+                        PageRequest.of(page, size));
+
+        return ResponseEntity.ok(
+                ApiResponse.success(results));
     }
 
     /**
-     * GET /api/v1/billing/overdue - Get overdue invoices for the dashboard
+     * GET /api/v1/billing/overdue
      */
     @GetMapping("/overdue")
     public ResponseEntity<ApiResponse<Page<InvoiceResponse>>> getOverdueInvoices(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             Authentication authentication) {
+
         String clinicId = getClinicId(authentication);
-        Page<InvoiceResponse> results = invoiceService.getOverdueInvoices(clinicId, PageRequest.of(page, size));
-        return ResponseEntity.ok(ApiResponse.success(results));
+
+        Page<InvoiceResponse> results =
+                invoiceService.getOverdueInvoices(
+                        clinicId,
+                        PageRequest.of(page, size));
+
+        return ResponseEntity.ok(
+                ApiResponse.success(results));
+    }
+
+    /**
+     * POST /api/v1/billing/{invoiceId}/payments
+     */
+    @PostMapping("/{invoiceId}/payments")
+    public ResponseEntity<ApiResponse<PaymentResponse>> recordPayment(
+            @PathVariable Long invoiceId,
+            @Valid @RequestBody CreatePaymentRequest request,
+            Authentication authentication) {
+
+        String clinicId = getClinicId(authentication);
+
+        PaymentResponse response =
+                paymentService.recordPayment(
+                        clinicId,
+                        invoiceId,
+                        request);
+
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(
+                        "Payment recorded successfully",
+                        response));
+    }
+
+    /**
+     * GET /api/v1/billing/{invoiceId}/payments
+     */
+    @GetMapping("/{invoiceId}/payments")
+    public ResponseEntity<ApiResponse<Page<PaymentResponse>>> getPayments(
+            @PathVariable Long invoiceId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            Authentication authentication) {
+
+        String clinicId = getClinicId(authentication);
+
+        Page<PaymentResponse> results =
+                paymentService.getPayments(
+                        clinicId,
+                        invoiceId,
+                        PageRequest.of(page, size));
+
+        return ResponseEntity.ok(
+                ApiResponse.success(results));
     }
 
     private String getClinicId(Authentication authentication) {

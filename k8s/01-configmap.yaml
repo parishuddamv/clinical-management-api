@@ -66,3 +66,4 @@ data:
   SERVICE_EMR_URL: "http://clinic-emr.clinicos.svc.cluster.local:8086"
   SERVICE_STAFF_URL: "http://clinic-staff.clinicos.svc.cluster.local:8087"
   SERVICE_FEEDBACK_URL: "http://clinic-feedback.clinicos.svc.cluster.local:8088"
+  SERVICE_SUBSCRIPTION_URL: "http://clinic-subscription.clinicos.svc.cluster.local:8089"

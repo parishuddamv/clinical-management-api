@@ -46,23 +46,34 @@ spec:
               cpu: "1"
               memory: 1Gi
 
-          readinessProbe:
+          startupProbe:
             httpGet:
-              path: /actuator/health/readiness
+              path: /actuator/health
               port: 8081
-            initialDelaySeconds: 30
+              scheme: HTTP
+            failureThreshold: 40
             periodSeconds: 10
+            successThreshold: 1
             timeoutSeconds: 5
-            failureThreshold: 6
 
           livenessProbe:
             httpGet:
               path: /actuator/health/liveness
               port: 8081
-            initialDelaySeconds: 150
+              scheme: HTTP
+            initialDelaySeconds: 30
             periodSeconds: 15
             timeoutSeconds: 5
             failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8081
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
 
 ---
 

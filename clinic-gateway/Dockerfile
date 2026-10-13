@@ -4,7 +4,7 @@ WORKDIR /app
 
 RUN apk add --no-cache curl
 
-COPY target/clinic-gateway.jar app.jar
+COPY clinic-gateway/target/clinic-gateway.jar app.jar
 
 EXPOSE 8080
 

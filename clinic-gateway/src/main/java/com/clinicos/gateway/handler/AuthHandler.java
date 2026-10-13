@@ -7,6 +7,8 @@ import com.clinicos.common.dto.RegistrationRequest;
 import com.clinicos.common.dto.UserStatusResponse;
 import com.clinicos.common.service.GoogleAuthService;
 import com.clinicos.common.service.UserRegistrationService;
+import com.clinicos.common.service.DemoBookingService;
+import com.clinicos.common.entity.DemoBooking;
 import com.clinicos.common.exception.RegistrationException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +32,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 public class AuthHandler {
 
     private final UserRegistrationService userRegistrationService;
+    private final DemoBookingService demoBookingService;
     private final GoogleAuthService googleAuthService;
     private final ObjectMapper objectMapper;
 
@@ -304,6 +307,87 @@ public class AuthHandler {
                     .contentType(MediaType.APPLICATION_JSON)
                     .bodyValue(ApiResponse.error("Unable to suspend user."));
         }
+    }
+    /**
+     * Handle GET /api/v1/admin/users/pending
+     * Compatibility endpoint for the Super Admin registration screen.
+     * Returns registrations currently awaiting Super Admin approval.
+     */
+    public Mono<ServerResponse> pendingDemoBookings(ServerRequest request) {
+        return operation(
+                () -> demoBookingService.getPendingBookings(
+                        authorization(request),
+                        page(request, "page", 0),
+                        page(request, "size", 20)
+                ),
+                "Success"
+        );
+    }
+
+    public Mono<ServerResponse> confirmedDemoBookings(ServerRequest request) {
+        return operation(
+                () -> demoBookingService.getConfirmedBookings(
+                        authorization(request),
+                        page(request, "page", 0),
+                        page(request, "size", 20)
+                ),
+                "Success"
+        );
+    }
+
+    public Mono<ServerResponse> demoBookingsByDate(ServerRequest request) {
+        return operation(
+                () -> demoBookingService.getBookingsByDate(
+                        authorization(request),
+                        java.time.LocalDate.parse(request.pathVariable("date"))
+                ),
+                "Success"
+        );
+    }
+
+    public Mono<ServerResponse> getDemoBooking(ServerRequest request) {
+        return operation(
+                () -> demoBookingService.getBooking(
+                        authorization(request),
+                        Long.valueOf(request.pathVariable("id"))
+                ),
+                "Success"
+        );
+    }
+
+    public Mono<ServerResponse> confirmDemoBooking(ServerRequest request) {
+        String demoLink = request.queryParam("demoLink").orElse(null);
+
+        return operation(
+                () -> demoBookingService.confirmBooking(
+                        authorization(request),
+                        Long.valueOf(request.pathVariable("id")),
+                        demoLink
+                ),
+                "Demo booking confirmed successfully"
+        );
+    }
+
+    public Mono<ServerResponse> cancelDemoBooking(ServerRequest request) {
+        return operation(
+                () -> demoBookingService.cancelBooking(
+                        authorization(request),
+                        Long.valueOf(request.pathVariable("id"))
+                ),
+                "Demo booking cancelled successfully"
+        );
+    }
+    public Mono<ServerResponse> pendingUsers(ServerRequest request) {
+        return operation(
+                () -> userRegistrationService.registrations(
+                        authorization(request),
+                        "PENDING",
+                        null,
+                        0,
+                        20
+                ),
+                "Success"
+        );
     }
     public Mono<ServerResponse> registrations(ServerRequest request) {
         return operation(() -> userRegistrationService.registrations(authorization(request),

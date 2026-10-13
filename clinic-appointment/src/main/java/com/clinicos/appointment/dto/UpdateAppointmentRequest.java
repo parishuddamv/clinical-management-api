@@ -12,7 +12,8 @@ public class UpdateAppointmentRequest {
 
     private AppointmentStatus status;
 
-    private String doctorName;
+    private Long doctorId;
 
     private String notes;
 }
+

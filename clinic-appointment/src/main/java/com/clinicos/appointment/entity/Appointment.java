@@ -36,6 +36,8 @@ public class Appointment extends BaseEntity {
 
     @Column(columnDefinition = "TEXT")
     private String notes;
+    @Column(name = "doctor_id")
+    private Long doctorId;
 
     @Column(name = "doctor_name")
     private String doctorName;
@@ -44,4 +46,6 @@ public class Appointment extends BaseEntity {
         SCHEDULED, CONFIRMED, IN_PROGRESS, COMPLETED, CANCELLED, NO_SHOW
     }
 }
+
+
 

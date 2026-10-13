@@ -30,9 +30,10 @@ public class AppointmentController {
     @PostMapping
     public ResponseEntity<ApiResponse<AppointmentResponse>> create(
             @Valid @RequestBody CreateAppointmentRequest request,
-            Authentication authentication) {
+            Authentication authentication,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
         String clinicId = getClinicId(authentication);
-        AppointmentResponse response = appointmentService.create(clinicId, request);
+        AppointmentResponse response = appointmentService.create(clinicId, request, authorization);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Appointment created successfully", response));
     }
@@ -56,9 +57,10 @@ public class AppointmentController {
     public ResponseEntity<ApiResponse<AppointmentResponse>> update(
             @PathVariable Long id,
             @RequestBody UpdateAppointmentRequest request,
-            Authentication authentication) {
+            Authentication authentication,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
         String clinicId = getClinicId(authentication);
-        AppointmentResponse response = appointmentService.update(clinicId, id, request);
+        AppointmentResponse response = appointmentService.update(clinicId, id, request, authorization);
         return ResponseEntity.ok(ApiResponse.success("Appointment updated successfully", response));
     }
 
@@ -93,3 +95,4 @@ public class AppointmentController {
         return (String) authentication.getDetails();
     }
 }
+

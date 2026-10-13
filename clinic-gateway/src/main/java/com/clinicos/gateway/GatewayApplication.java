@@ -7,10 +7,16 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 @SpringBootApplication
-@ComponentScan(basePackages = {
-        "com.clinicos.gateway",
-        "com.clinicos.common"
-})
+@ComponentScan(
+        basePackages = {
+                "com.clinicos.gateway",
+                "com.clinicos.common"
+        },
+        excludeFilters = @ComponentScan.Filter(
+                type = org.springframework.context.annotation.FilterType.ASSIGNABLE_TYPE,
+                classes = com.clinicos.common.security.CommonSecurityConfig.class
+        )
+)
 @EnableJpaRepositories(basePackages = "com.clinicos.common.repository")
 @EntityScan(basePackages = "com.clinicos.common.entity")
 public class GatewayApplication {

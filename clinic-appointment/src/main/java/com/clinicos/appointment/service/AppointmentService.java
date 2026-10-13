@@ -1,5 +1,7 @@
 package com.clinicos.appointment.service;
 
+import com.clinicos.appointment.client.StaffClient;
+import com.clinicos.appointment.client.StaffClient.StaffMemberInfo;
 import com.clinicos.appointment.dto.AppointmentResponse;
 import com.clinicos.appointment.dto.CreateAppointmentRequest;
 import com.clinicos.appointment.dto.UpdateAppointmentRequest;
@@ -24,18 +26,32 @@ import java.time.LocalTime;
 public class AppointmentService {
 
     private final AppointmentRepository appointmentRepository;
+    private final StaffClient staffClient;
 
     @Transactional
-    public AppointmentResponse create(String clinicId, CreateAppointmentRequest request) {
+    public AppointmentResponse create(
+            String clinicId,
+            CreateAppointmentRequest request,
+            String authorization) {
+
+        StaffMemberInfo doctor = validateDoctor(
+                request.getDoctorId(),
+                clinicId,
+                authorization);
+
         Appointment appointment = Appointment.builder()
                 .patientId(request.getPatientId())
                 .appointmentDateTime(request.getAppointmentDateTime())
-                .doctorName(request.getDoctorName())
+                .doctorId(doctor.id())
+                .doctorName(getDoctorName(doctor))
                 .notes(request.getNotes())
                 .status(AppointmentStatus.SCHEDULED)
                 .build();
+
         appointment.setClinicId(clinicId);
-        return AppointmentResponse.from(appointmentRepository.save(appointment));
+
+        return AppointmentResponse.from(
+                appointmentRepository.save(appointment));
     }
 
     @Transactional(readOnly = true)
@@ -45,52 +61,132 @@ public class AppointmentService {
     }
 
     @Transactional
-    public AppointmentResponse update(String clinicId, Long id, UpdateAppointmentRequest request) {
+    public AppointmentResponse update(
+            String clinicId,
+            Long id,
+            UpdateAppointmentRequest request,
+            String authorization) {
+
         Appointment appointment = findByIdAndClinic(clinicId, id);
 
         if (request.getAppointmentDateTime() != null) {
-            appointment.setAppointmentDateTime(request.getAppointmentDateTime());
+            appointment.setAppointmentDateTime(
+                    request.getAppointmentDateTime());
         }
+
         if (request.getStatus() != null) {
             appointment.setStatus(request.getStatus());
         }
-        if (request.getDoctorName() != null) {
-            appointment.setDoctorName(request.getDoctorName());
+
+        if (request.getDoctorId() != null) {
+            StaffMemberInfo doctor = validateDoctor(
+                    request.getDoctorId(),
+                    clinicId,
+                    authorization);
+
+            appointment.setDoctorId(doctor.id());
+            appointment.setDoctorName(getDoctorName(doctor));
         }
+
         if (request.getNotes() != null) {
             appointment.setNotes(request.getNotes());
         }
 
-        return AppointmentResponse.from(appointmentRepository.save(appointment));
+        return AppointmentResponse.from(
+                appointmentRepository.save(appointment));
     }
 
     @Transactional(readOnly = true)
-    public Page<AppointmentResponse> getAll(String clinicId, AppointmentStatus status, Pageable pageable) {
+    public Page<AppointmentResponse> getAll(
+            String clinicId,
+            AppointmentStatus status,
+            Pageable pageable) {
+
         Page<Appointment> page = (status != null)
-                ? appointmentRepository.findByClinicIdAndStatus(clinicId, status, pageable)
-                : appointmentRepository.findByClinicId(clinicId, pageable);
+                ? appointmentRepository.findByClinicIdAndStatus(
+                        clinicId, status, pageable)
+                : appointmentRepository.findByClinicId(
+                        clinicId, pageable);
+
         return page.map(AppointmentResponse::from);
     }
 
     /**
-     * Get today's appointments for the clinic
+     * Get today's appointments for the clinic.
      */
     @Transactional(readOnly = true)
-    public Page<AppointmentResponse> getTodayAppointments(String clinicId, Pageable pageable) {
+    public Page<AppointmentResponse> getTodayAppointments(
+            String clinicId,
+            Pageable pageable) {
+
         LocalDate today = LocalDate.now();
         LocalDateTime startOfDay = today.atStartOfDay();
         LocalDateTime endOfDay = today.atTime(LocalTime.MAX);
 
-        log.info("Fetching today's appointments for clinic: {} from {} to {}", clinicId, startOfDay, endOfDay);
+        log.info(
+                "Fetching today's appointments for clinic: {} from {} to {}",
+                clinicId,
+                startOfDay,
+                endOfDay);
 
-        Page<Appointment> page = appointmentRepository.findByClinicIdAndDateRange(
-                clinicId, startOfDay, endOfDay, pageable);
+        Page<Appointment> page =
+                appointmentRepository.findByClinicIdAndDateRange(
+                        clinicId,
+                        startOfDay,
+                        endOfDay,
+                        pageable);
+
         return page.map(AppointmentResponse::from);
     }
 
-    private Appointment findByIdAndClinic(String clinicId, Long id) {
+    private StaffMemberInfo validateDoctor(
+            Long doctorId,
+            String clinicId,
+            String authorization) {
+
+        if (doctorId == null) {
+            throw new IllegalArgumentException(
+                    "Doctor ID is required");
+        }
+
+        if (authorization == null || authorization.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Authorization token is required to validate doctor");
+        }
+
+        return staffClient.getActiveDoctor(
+                doctorId,
+                authorization,
+                clinicId);
+    }
+
+    private String getDoctorName(StaffMemberInfo doctor) {
+
+        if (doctor.fullName() != null
+                && !doctor.fullName().isBlank()) {
+            return doctor.fullName();
+        }
+
+        String firstName = doctor.firstName() == null
+                ? ""
+                : doctor.firstName().trim();
+
+        String lastName = doctor.lastName() == null
+                ? ""
+                : doctor.lastName().trim();
+
+        return (firstName + " " + lastName).trim();
+    }
+
+    private Appointment findByIdAndClinic(
+            String clinicId,
+            Long id) {
+
         return appointmentRepository.findById(id)
                 .filter(a -> clinicId.equals(a.getClinicId()))
-                .orElseThrow(() -> new ResourceNotFoundException("Appointment not found: " + id));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Appointment not found: " + id));
     }
 }
+

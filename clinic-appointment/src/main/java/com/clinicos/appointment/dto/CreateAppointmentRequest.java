@@ -14,7 +14,9 @@ public class CreateAppointmentRequest {
     @NotNull(message = "Appointment date/time is required")
     private LocalDateTime appointmentDateTime;
 
-    private String doctorName;
+    @NotNull(message = "Doctor ID is required")
+    private Long doctorId;
 
     private String notes;
 }
+
