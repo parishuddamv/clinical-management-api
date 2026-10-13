@@ -12,6 +12,7 @@ import com.clinicos.common.entity.DemoBooking;
 import com.clinicos.common.exception.RegistrationException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -32,7 +33,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 public class AuthHandler {
 
     private final UserRegistrationService userRegistrationService;
-    private final DemoBookingService demoBookingService;
+    private final ObjectProvider<DemoBookingService> demoBookingService;
     private final GoogleAuthService googleAuthService;
     private final ObjectMapper objectMapper;
 
@@ -315,7 +316,7 @@ public class AuthHandler {
      */
     public Mono<ServerResponse> pendingDemoBookings(ServerRequest request) {
         return operation(
-                () -> demoBookingService.getPendingBookings(
+                () -> demoBookingService().getPendingBookings(
                         authorization(request),
                         page(request, "page", 0),
                         page(request, "size", 20)
@@ -326,7 +327,7 @@ public class AuthHandler {
 
     public Mono<ServerResponse> confirmedDemoBookings(ServerRequest request) {
         return operation(
-                () -> demoBookingService.getConfirmedBookings(
+                () -> demoBookingService().getConfirmedBookings(
                         authorization(request),
                         page(request, "page", 0),
                         page(request, "size", 20)
@@ -337,7 +338,7 @@ public class AuthHandler {
 
     public Mono<ServerResponse> demoBookingsByDate(ServerRequest request) {
         return operation(
-                () -> demoBookingService.getBookingsByDate(
+                () -> demoBookingService().getBookingsByDate(
                         authorization(request),
                         java.time.LocalDate.parse(request.pathVariable("date"))
                 ),
@@ -347,7 +348,7 @@ public class AuthHandler {
 
     public Mono<ServerResponse> getDemoBooking(ServerRequest request) {
         return operation(
-                () -> demoBookingService.getBooking(
+                () -> demoBookingService().getBooking(
                         authorization(request),
                         Long.valueOf(request.pathVariable("id"))
                 ),
@@ -359,7 +360,7 @@ public class AuthHandler {
         String demoLink = request.queryParam("demoLink").orElse(null);
 
         return operation(
-                () -> demoBookingService.confirmBooking(
+                () -> demoBookingService().confirmBooking(
                         authorization(request),
                         Long.valueOf(request.pathVariable("id")),
                         demoLink
@@ -370,7 +371,7 @@ public class AuthHandler {
 
     public Mono<ServerResponse> cancelDemoBooking(ServerRequest request) {
         return operation(
-                () -> demoBookingService.cancelBooking(
+                () -> demoBookingService().cancelBooking(
                         authorization(request),
                         Long.valueOf(request.pathVariable("id"))
                 ),
@@ -443,6 +444,15 @@ public class AuthHandler {
             log.error("Request processing error: {}", e.getMessage(), e);
         }
         return ServerResponse.status(status).contentType(MediaType.APPLICATION_JSON).bodyValue(ApiResponse.error(message));
+    }
+
+    private DemoBookingService demoBookingService() {
+        DemoBookingService service = demoBookingService.getIfAvailable();
+        if (service == null) {
+            throw new RegistrationException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "Demo booking service is unavailable.");
+        }
+        return service;
     }
 }
 

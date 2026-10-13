@@ -7,6 +7,7 @@ import com.clinicos.common.repository.ClinicUserRepository;
 import com.clinicos.common.repository.RegistrationHistoryRepository;
 import com.clinicos.common.security.JwtTokenProvider;
 import com.clinicos.common.security.RegistrationAccess;
+import com.clinicos.common.service.DemoBookingService;
 import com.clinicos.common.service.GoogleAuthService;
 import com.clinicos.common.service.UserRegistrationService;
 import com.clinicos.gateway.config.AuthRouterConfig;
@@ -58,6 +59,7 @@ class RegistrationManagementTest {
     @Autowired JwtTokenProvider tokens;
     @Autowired UserRegistrationService registrations;
     @Autowired RegistrationAccess registrationAccess;
+    @MockBean DemoBookingService demoBookingService;
     @MockBean GoogleAuthService google;
     private String superToken;
 
