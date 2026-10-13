@@ -8,6 +8,11 @@ metadata:
   namespace: clinicos
 spec:
   replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 100%
+      maxUnavailable: 0
   selector:
     matchLabels: { app: clinic-patient }
   template:
