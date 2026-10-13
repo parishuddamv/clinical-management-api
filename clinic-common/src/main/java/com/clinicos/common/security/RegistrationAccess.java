@@ -4,6 +4,7 @@ import com.clinicos.common.entity.ClinicUser;
 import com.clinicos.common.exception.RegistrationException;
 import com.clinicos.common.repository.ClinicUserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -12,6 +13,7 @@ import java.util.Locale;
 
 /** Shared by MVC and WebFlux. Never relies on browser roles or thread-local reactive context. */
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class RegistrationAccess {
     private final JwtTokenProvider tokens;
@@ -48,12 +50,62 @@ public class RegistrationAccess {
     }
 
     public ClinicUser requireClinicAccess(String authorization, String clinicId) {
-        ClinicUser caller = users.getObject().findByEmailIgnoreCase(identity(authorization))
-                .orElseThrow(RegistrationAccess::denied);
-        if (caller.getStatus() != ClinicUser.UserStatus.APPROVED || !Boolean.TRUE.equals(caller.getIsActive())
-                || clinicId == null || clinicId.isBlank() || !clinicId.equals(caller.getClinicId())) {
-            throw new RegistrationException(HttpStatus.FORBIDDEN, "Approved, active clinic membership is required.");
+        String email = identity(authorization);
+
+        log.info("Clinic access check: email={}, clinicId={}", email, clinicId);
+
+        ClinicUser caller = users.getObject()
+                .findByEmailIgnoreCase(email)
+                .orElseThrow(() -> {
+                    log.warn("Clinic access denied: user not found for email={}", email);
+                    return denied();
+                });
+
+        log.info(
+                "Clinic user found: email={}, status={}, active={}, dbClinicId={}",
+                caller.getEmail(),
+                caller.getStatus(),
+                caller.getIsActive(),
+                caller.getClinicId()
+        );
+
+        if (caller.getStatus() != ClinicUser.UserStatus.APPROVED) {
+            log.warn("Clinic access denied: status={}", caller.getStatus());
+            throw new RegistrationException(
+                    HttpStatus.FORBIDDEN,
+                    "Approved, active clinic membership is required."
+            );
         }
+
+        if (!Boolean.TRUE.equals(caller.getIsActive())) {
+            log.warn("Clinic access denied: account inactive");
+            throw new RegistrationException(
+                    HttpStatus.FORBIDDEN,
+                    "Approved, active clinic membership is required."
+            );
+        }
+
+        if (clinicId == null || clinicId.isBlank()) {
+            log.warn("Clinic access denied: JWT clinicId is missing");
+            throw new RegistrationException(
+                    HttpStatus.FORBIDDEN,
+                    "Approved, active clinic membership is required."
+            );
+        }
+
+        if (!clinicId.equals(caller.getClinicId())) {
+            log.warn(
+                    "Clinic access denied: JWT clinicId={} does not match DB clinicId={}",
+                    clinicId,
+                    caller.getClinicId()
+            );
+            throw new RegistrationException(
+                    HttpStatus.FORBIDDEN,
+                    "Approved, active clinic membership is required."
+            );
+        }
+
+        log.info("Clinic access approved for email={}, clinicId={}", email, clinicId);
         return caller;
     }
 

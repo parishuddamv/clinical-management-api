@@ -45,6 +45,9 @@ public class GatewayConfig {
     @Value("${service.feedback.url:http://localhost:8088}")
     private String feedbackServiceUrl;
 
+    @Value("${service.subscription.url:http://localhost:8089}")
+    private String subscriptionServiceUrl;
+
     @Bean
     public RouteLocator routeLocator(RouteLocatorBuilder builder) {
         log.info("Configuring gateway routes:");
@@ -56,6 +59,7 @@ public class GatewayConfig {
         log.info("  EMR Service: {}", emrServiceUrl);
         log.info("  Staff Service: {}", staffServiceUrl);
         log.info("  Feedback Service: {}", feedbackServiceUrl);
+        log.info("  Subscription Service: {}", subscriptionServiceUrl);
 
         return builder.routes()
                 // Authentication Service Routes handled by AuthHandler (via RouterFunction)
@@ -102,6 +106,14 @@ public class GatewayConfig {
                         .path("/api/v1/staff/**")
                         .filters(f -> f.filter(jwtGatewayFilterFactory.apply(new JwtGatewayFilterFactory.Config())))
                         .uri(staffServiceUrl))
+
+                // Subscription Service Routes
+                .route("subscription-service", r -> r
+                        .path("/api/v1/subscriptions/**")
+                        .filters(f -> f
+                                .filter(jwtGatewayFilterFactory.apply(new JwtGatewayFilterFactory.Config()))
+                                .stripPrefix(2))
+                        .uri(subscriptionServiceUrl))
 
                 // Feedback Service Routes (Patient Reviews & Feedback)
                 .route("feedback-service", r -> r

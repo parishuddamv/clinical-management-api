@@ -35,7 +35,7 @@ public class GatewaySecurityConfig {
                 // Authorization rules
                 .authorizeExchange(exchange -> exchange
                         .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .pathMatchers("/api/v1/auth/admin/**").access((authentication, context) ->
+                        .pathMatchers("/api/v1/auth/admin/**", "/api/v1/admin/users/pending", "/api/v1/admin/users/all", "/api/v1/admin/demo-bookings/**").access((authentication, context) ->
                                 reactor.core.publisher.Mono.fromCallable(() -> {
                                     registrationAccess.requireSuperAdmin(context.getExchange().getRequest()
                                             .getHeaders().getFirst("Authorization"));

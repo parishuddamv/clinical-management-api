@@ -140,8 +140,14 @@ public class JwtGatewayFilterFactory
 
                 return Mono.fromCallable(() -> registrationAccess.requireClinicAccess(authHeader, clinicId))
                         .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
-                        .onErrorResume(e -> onError(exchange, "Approved, active clinic membership is required",
-                                HttpStatus.FORBIDDEN).then(Mono.empty()))
+                        .onErrorResume(e -> {
+                            log.error("Clinic access check failed for path: {}", path, e);
+                            return onError(
+                                    exchange,
+                                    "Approved, active clinic membership is required",
+                                    HttpStatus.FORBIDDEN
+                            ).then(Mono.empty());
+                        })
                         .flatMap(user -> chain.filter(mutatedExchange));
 
             } catch (Exception e) {
