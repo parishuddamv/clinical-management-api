@@ -40,7 +40,8 @@ public class SecurityConfig {
                     "/actuator/prometheus"
                 ).permitAll()
 
-                .requestMatchers("/subscriptions/plans").authenticated()
+                // Plan catalog is public (marketing pricing page); all other subscription endpoints need a JWT
+                .requestMatchers(org.springframework.http.HttpMethod.GET, "/subscriptions/plans").permitAll()
 
                 .requestMatchers("/subscriptions/**").authenticated()
 

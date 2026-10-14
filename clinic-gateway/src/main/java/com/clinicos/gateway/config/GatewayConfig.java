@@ -107,6 +107,15 @@ public class GatewayConfig {
                         .filters(f -> f.filter(jwtGatewayFilterFactory.apply(new JwtGatewayFilterFactory.Config())))
                         .uri(staffServiceUrl))
 
+                // Public plan catalog (read-only, no clinic data) for the marketing pricing section.
+                // Declared before the authenticated route so it matches first.
+                .route("subscription-plans-public", r -> r
+                        .method(org.springframework.http.HttpMethod.GET)
+                        .and()
+                        .path("/api/v1/subscriptions/plans")
+                        .filters(f -> f.stripPrefix(2))
+                        .uri(subscriptionServiceUrl))
+
                 // Subscription Service Routes
                 .route("subscription-service", r -> r
                         .path("/api/v1/subscriptions/**")
