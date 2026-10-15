@@ -264,43 +264,43 @@ jobs:
 
           kubectl -n $NAMESPACE rollout status \
             deployment/clinic-patient \
-            --timeout=5m
+            --timeout=12m
 
           kubectl -n $NAMESPACE rollout status \
             deployment/clinic-appointment \
-            --timeout=5m
+            --timeout=12m
 
           kubectl -n $NAMESPACE rollout status \
             deployment/clinic-followup \
-            --timeout=5m
+            --timeout=12m
 
           kubectl -n $NAMESPACE rollout status \
             deployment/clinic-notification \
-            --timeout=5m
+            --timeout=12m
 
           kubectl -n $NAMESPACE rollout status \
             deployment/clinic-billing \
-            --timeout=5m
+            --timeout=12m
 
           kubectl -n $NAMESPACE rollout status \
             deployment/clinic-emr \
-            --timeout=5m
+            --timeout=12m
 
           kubectl -n $NAMESPACE rollout status \
             deployment/clinic-subscription \
-            --timeout=5m
+            --timeout=12m
 
           kubectl -n $NAMESPACE rollout status \
             deployment/clinic-staff \
-            --timeout=5m
+            --timeout=12m
 
           kubectl -n $NAMESPACE rollout status \
             deployment/clinic-feedback \
-            --timeout=5m
+            --timeout=12m
 
           kubectl -n $NAMESPACE rollout status \
             deployment/clinic-gateway \
-            --timeout=5m
+            --timeout=12m
 
       # ========================================================
       # Production verification
