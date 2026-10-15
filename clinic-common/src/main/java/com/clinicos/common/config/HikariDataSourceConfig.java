@@ -46,8 +46,10 @@ public class HikariDataSourceConfig {
         // Connection timeout
         config.setConnectionTimeout(20000);
 
-        // Remove idle connections after 5 minutes
-        config.setIdleTimeout(300000);
+        // Hand idle connections back after 1 minute: Cloud SQL only has ~22
+        // usable slots shared by every pod, and new pods crash at startup
+        // ("remaining connection slots are reserved") when idle pools hold them.
+        config.setIdleTimeout(60000);
 
         // Recycle connections after 10 minutes
         config.setMaxLifetime(600000);
