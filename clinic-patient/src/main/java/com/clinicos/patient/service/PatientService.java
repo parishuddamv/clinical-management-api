@@ -174,6 +174,7 @@ public class PatientService {
      * Add a tag to patient
      */
     @Transactional
+    @CacheEvict(value = "patients", key = "#clinicId + ':' + #patientId")
     public void addTag(String clinicId, Long patientId, String tag) {
         log.info("Adding tag '{}' to patient: {} for clinic: {}", tag, patientId, clinicId);
 
@@ -196,6 +197,7 @@ public class PatientService {
      * Remove a tag from patient
      */
     @Transactional
+    @CacheEvict(value = "patients", key = "#clinicId + ':' + #patientId")
     public void removeTag(String clinicId, Long patientId, String tag) {
         log.info("Removing tag '{}' from patient: {} for clinic: {}", tag, patientId, clinicId);
 
