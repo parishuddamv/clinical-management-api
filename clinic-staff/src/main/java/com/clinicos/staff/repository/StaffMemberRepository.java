@@ -43,6 +43,8 @@ public interface StaffMemberRepository extends JpaRepository<StaffMember, Long> 
 
     long countByClinicIdAndStatus(String clinicId, StaffStatus status);
 
+    long countByClinicIdAndRoleAndStatus(String clinicId, StaffRole role, StaffStatus status);
+
     boolean existsByEmailAndClinicId(String email, String clinicId);
 }
 

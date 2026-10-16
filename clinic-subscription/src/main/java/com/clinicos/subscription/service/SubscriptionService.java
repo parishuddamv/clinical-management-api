@@ -67,7 +67,7 @@ public class SubscriptionService {
 
         ClinicSubscription subscription = subscriptionRepository
                 .findByClinicId(clinicId)
-                .orElseGet(() -> createStarterTrial(clinicId));
+                .orElseGet(() -> createTrial(clinicId));
 
         subscription.setPlan(plan);
         subscription.setBillingCycle(billingCycle);
@@ -96,7 +96,7 @@ public class SubscriptionService {
 
         ClinicSubscription subscription = subscriptionRepository
                 .findByClinicId(clinicId)
-                .orElseGet(() -> createStarterTrial(clinicId));
+                .orElseGet(() -> createTrial(clinicId));
 
         SubscriptionPlan plan = subscription.getPlan();
 
@@ -127,23 +127,32 @@ public class SubscriptionService {
                 .build();
     }
 
-    private ClinicSubscription createStarterTrial(String clinicId) {
+    /** Days in the free trial new clinics get, as promised on the pricing page. */
+    private static final int TRIAL_DAYS = 30;
 
-        SubscriptionPlan starterPlan = planRepository
-                .findByCode("STARTER")
+    /**
+     * New clinics start on a 30-day Professional trial (falls back to Starter if the
+     * Professional plan is missing or retired).
+     */
+    private ClinicSubscription createTrial(String clinicId) {
+
+        SubscriptionPlan trialPlan = planRepository
+                .findByCode("PROFESSIONAL")
+                .filter(p -> Boolean.TRUE.equals(p.getActive()))
+                .or(() -> planRepository.findByCode("STARTER"))
                 .orElseThrow(() ->
-                        new IllegalStateException("STARTER subscription plan not found"));
+                        new IllegalStateException("No subscription plan available for the trial"));
 
         LocalDateTime now = LocalDateTime.now();
 
         ClinicSubscription subscription = subscriptionRepository.save(
                 ClinicSubscription.builder()
                         .clinicId(clinicId)
-                        .plan(starterPlan)
+                        .plan(trialPlan)
                         .status("TRIAL")
                         .billingCycle("MONTHLY")
-                        .trialEndsAt(now.plusDays(14))
-                        .renewalDate(now.plusDays(14))
+                        .trialEndsAt(now.plusDays(TRIAL_DAYS))
+                        .renewalDate(now.plusDays(TRIAL_DAYS))
                         .build()
         );
 
@@ -211,6 +220,7 @@ public class SubscriptionService {
                 .currency(plan.getCurrency())
                 .recommended(plan.getRecommended())
                 .staffSeatLimit(plan.getStaffSeatLimit())
+                .doctorLimit(plan.getDoctorLimit())
                 .features(features)
                 .build();
     }

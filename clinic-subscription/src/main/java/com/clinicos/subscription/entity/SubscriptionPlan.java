@@ -46,6 +46,10 @@ public class SubscriptionPlan {
     @Column(name = "staff_seat_limit")
     private Long staffSeatLimit;
 
+    /** Maximum active doctors; NULL means unlimited. */
+    @Column(name = "doctor_limit")
+    private Long doctorLimit;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 

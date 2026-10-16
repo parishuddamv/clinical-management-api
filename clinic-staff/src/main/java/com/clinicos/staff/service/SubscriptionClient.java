@@ -38,7 +38,7 @@ public class SubscriptionClient {
             JsonNode data = root.get("data");
 
             if (data == null || data.isNull()) {
-                return new SubscriptionInfo(null, null);
+                return new SubscriptionInfo(null, null, null);
             }
 
             String status = data.hasNonNull("status")
@@ -46,13 +46,17 @@ public class SubscriptionClient {
                     : null;
 
             Long staffSeatLimit = null;
+            Long doctorLimit = null;
 
             JsonNode plan = data.get("plan");
             if (plan != null && !plan.isNull() && plan.hasNonNull("staffSeatLimit")) {
                 staffSeatLimit = plan.get("staffSeatLimit").asLong();
             }
+            if (plan != null && !plan.isNull() && plan.hasNonNull("doctorLimit")) {
+                doctorLimit = plan.get("doctorLimit").asLong();
+            }
 
-            return new SubscriptionInfo(staffSeatLimit, status);
+            return new SubscriptionInfo(staffSeatLimit, doctorLimit, status);
 
         } catch (Exception e) {
             throw new IllegalStateException(
@@ -62,6 +66,7 @@ public class SubscriptionClient {
 
     public record SubscriptionInfo(
             Long staffSeatLimit,
+            Long doctorLimit,
             String status
     ) {
     }

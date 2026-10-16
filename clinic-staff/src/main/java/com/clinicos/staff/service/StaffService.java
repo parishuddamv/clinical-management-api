@@ -9,6 +9,7 @@ import com.clinicos.staff.entity.StaffRequest.StaffRequestStatus;
 import com.clinicos.staff.repository.RolePermissionRepository;
 import com.clinicos.staff.repository.StaffMemberRepository;
 import com.clinicos.staff.repository.StaffRequestRepository;
+import com.clinicos.common.exception.ClinicOSException;
 import com.clinicos.common.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -108,6 +109,25 @@ public class StaffService {
                     request.getId(),
                     activeSeats,
                     seatLimit);
+        }
+
+        /*
+         * Plans also cap the number of active doctors (Starter 1, Professional 3).
+         * NULL means unlimited (Clinic / Hospital).
+         */
+        Long doctorLimit = subscription.doctorLimit();
+        StaffStatus newStatus = dto.getStatus() != null ? dto.getStatus() : StaffStatus.ACTIVE;
+        if (doctorLimit != null
+                && dto.getRole() == StaffRole.DOCTOR
+                && newStatus == StaffStatus.ACTIVE) {
+            long activeDoctors = staffRepository.countByClinicIdAndRoleAndStatus(
+                    clinicId, StaffRole.DOCTOR, StaffStatus.ACTIVE);
+            if (activeDoctors >= doctorLimit) {
+                throw new ClinicOSException(
+                        "DOCTOR_LIMIT_REACHED",
+                        "Your plan includes " + doctorLimit + (doctorLimit == 1 ? " doctor" : " doctors")
+                                + ". Upgrade your plan on the Subscription page to add more doctors.");
+            }
         }
 
         StaffMember staff = StaffMember.builder()

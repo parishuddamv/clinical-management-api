@@ -19,5 +19,6 @@ public class SubscriptionPlanResponse {
     private String currency;
     private Boolean recommended;
     private Long staffSeatLimit;
+    private Long doctorLimit;
     private List<SubscriptionFeatureResponse> features;
 }
