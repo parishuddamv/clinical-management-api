@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -63,8 +64,56 @@ public class PrescriptionService {
         }
 
         // Add prescription items
+        addItems(prescription, request.getItems());
+
+        prescription = prescriptionRepository.save(prescription);
+        log.info("Created prescription: {} with {} items", prescriptionNumber, prescription.getItems().size());
+
+        return mapToResponse(prescription);
+    }
+
+    /** Edits a prescription while it is still a draft. Items are replaced with the ones sent. */
+    @Transactional
+    public PrescriptionResponse updatePrescription(String clinicId, Long id, CreatePrescriptionRequest request) {
+        Prescription prescription = prescriptionRepository.findByIdWithItemsAndClinicId(id, clinicId)
+                .orElseThrow(() -> new ResourceNotFoundException("Prescription not found: " + id));
+        if (prescription.getStatus() != PrescriptionStatus.DRAFT) {
+            throw new com.clinicos.common.exception.RegistrationException(org.springframework.http.HttpStatus.CONFLICT,
+                    "Only draft prescriptions can be edited. Create a new prescription instead.");
+        }
+        if (request.getPatientId() != null && !request.getPatientId().equals(prescription.getPatientId())) {
+            throw new com.clinicos.common.exception.RegistrationException(org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "A prescription cannot be moved to another patient.");
+        }
+        if (request.getDoctorName() != null) prescription.setDoctorName(request.getDoctorName());
+        if (request.getDoctorLicenseNo() != null) prescription.setDoctorLicenseNo(request.getDoctorLicenseNo());
+        if (request.getDoctorSpecialization() != null) prescription.setDoctorSpecialization(request.getDoctorSpecialization());
+        if (request.getPrescriptionDate() != null) prescription.setPrescriptionDate(request.getPrescriptionDate());
+        prescription.setValidUntil(request.getValidUntil());
+        prescription.setDiagnosisSummary(request.getDiagnosisSummary());
+        prescription.setSpecialInstructions(request.getSpecialInstructions());
+        prescription.setNotes(request.getNotes());
+        if (request.getItems() != null) {
+            new ArrayList<>(prescription.getItems()).forEach(prescription::removeItem);
+            addItems(prescription, request.getItems());
+        }
+        prescription = prescriptionRepository.save(prescription);
+        log.info("Updated prescription: {}", prescription.getPrescriptionNumber());
+        return mapToResponse(prescription);
+    }
+
+    /** Records that the prescription was printed from the app. */
+    @Transactional
+    public PrescriptionResponse markPrinted(String clinicId, Long id) {
+        Prescription prescription = prescriptionRepository.findByIdWithItemsAndClinicId(id, clinicId)
+                .orElseThrow(() -> new ResourceNotFoundException("Prescription not found: " + id));
+        prescription.setPrintedAt(LocalDateTime.now());
+        return mapToResponse(prescriptionRepository.save(prescription));
+    }
+
+    private void addItems(Prescription prescription, List<PrescriptionItemRequest> requests) {
         int order = 0;
-        for (PrescriptionItemRequest itemReq : request.getItems()) {
+        for (PrescriptionItemRequest itemReq : requests) {
             PrescriptionItem item = PrescriptionItem.builder()
                     .drugName(itemReq.getDrugName())
                     .genericName(itemReq.getGenericName())
@@ -80,18 +129,11 @@ public class PrescriptionService {
                     .specialInstructions(itemReq.getSpecialInstructions())
                     .sequenceOrder(itemReq.getSequenceOrder() != null ? itemReq.getSequenceOrder() : order++)
                     .build();
-
             if (itemReq.getDrugId() != null) {
                 drugRepository.findById(itemReq.getDrugId()).ifPresent(item::setDrug);
             }
-
             prescription.addItem(item);
         }
-
-        prescription = prescriptionRepository.save(prescription);
-        log.info("Created prescription: {} with {} items", prescriptionNumber, prescription.getItems().size());
-
-        return mapToResponse(prescription);
     }
 
     @Transactional(readOnly = true)
@@ -255,6 +297,7 @@ public class PrescriptionService {
                 .deliveryReference(p.getDeliveryReference())
                 .pdfFilePath(p.getPdfFilePath())
                 .notes(p.getNotes())
+                .printedAt(p.getPrintedAt())
                 .items(p.getItems().stream().map(this::mapItemToResponse).collect(Collectors.toList()))
                 .createdAt(p.getCreatedAt())
                 .updatedAt(p.getUpdatedAt())

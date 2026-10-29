@@ -50,6 +50,30 @@ public class PrescriptionController {
     }
 
     /**
+     * Edit a draft prescription
+     */
+    @PutMapping("/{id}")
+    public ResponseEntity<ApiResponse<PrescriptionResponse>> updatePrescription(
+            @PathVariable Long id,
+            @Valid @RequestBody CreatePrescriptionRequest request,
+            Authentication authentication) {
+        String clinicId = getClinicId(authentication);
+        PrescriptionResponse response = prescriptionService.updatePrescription(clinicId, id, request);
+        return ResponseEntity.ok(ApiResponse.success("Prescription updated", response));
+    }
+
+    /**
+     * Record that the prescription was printed
+     */
+    @PostMapping("/{id}/mark-printed")
+    public ResponseEntity<ApiResponse<PrescriptionResponse>> markPrinted(
+            @PathVariable Long id,
+            Authentication authentication) {
+        String clinicId = getClinicId(authentication);
+        return ResponseEntity.ok(ApiResponse.success(prescriptionService.markPrinted(clinicId, id)));
+    }
+
+    /**
      * Finalize a draft prescription
      */
     @PostMapping("/{id}/finalize")

@@ -32,6 +32,7 @@ public class PrescriptionResponse {
     private String deliveryReference;
     private String pdfFilePath;
     private String notes;
+    private LocalDateTime printedAt;
     private List<PrescriptionItemResponse> items;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
