@@ -98,4 +98,59 @@ class ClinicProfileServiceTest {
         assertThatThrownBy(() -> service.publicBySlug("sunrise"))
                 .isInstanceOfSatisfying(RegistrationException.class, e -> assertThat(e.getStatus()).isEqualTo(HttpStatus.NOT_FOUND));
     }
+
+    private static String dataUrl(String type, byte[] bytes) {
+        return "data:" + type + ";base64," + java.util.Base64.getEncoder().encodeToString(bytes);
+    }
+
+    private static final byte[] PNG = {(byte) 0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0x0d};
+
+    @Test
+    void brandingIsSavedAndShownOnTheBookingPage() {
+        when(profiles.findById("C1")).thenReturn(Optional.empty());
+        when(profiles.findByBookingSlug("sunrise-clinic")).thenReturn(Optional.empty());
+
+        ClinicProfileDto saved = service.save("C1", valid().toBuilder().brandColor("#0F766E").bookingTheme("gradient").logo(dataUrl("image/png", PNG)).build(), "admin@x.in");
+
+        assertThat(saved.getBrandColor()).isEqualTo("#0f766e");
+        assertThat(saved.getBookingTheme()).isEqualTo("GRADIENT");
+        assertThat(saved.getLogo()).startsWith("data:image/png;base64,");
+
+        ClinicProfile row = ClinicProfile.builder().clinicId("C1").displayName("Sunrise").bookingEnabled(true).bookingSlug("sunrise-clinic")
+                .brandColor("#0f766e").bookingTheme("GRADIENT").logo(saved.getLogo()).build();
+        when(profiles.findByBookingSlug("sunrise-clinic")).thenReturn(Optional.of(row));
+        assertThat(service.publicBySlug("sunrise-clinic").getLogo()).isEqualTo(saved.getLogo());
+        assertThat(service.publicBySlug("sunrise-clinic").getBrandColor()).isEqualTo("#0f766e");
+    }
+
+    @Test
+    void defaultsToSoftThemeAndNoLogo() {
+        when(profiles.findById("C1")).thenReturn(Optional.empty());
+        when(profiles.findByBookingSlug("sunrise-clinic")).thenReturn(Optional.empty());
+
+        ClinicProfileDto saved = service.save("C1", valid().toBuilder().logo("").build(), "admin@x.in");
+
+        assertThat(saved.getBookingTheme()).isEqualTo("SOFT");
+        assertThat(saved.getLogo()).isNull();
+        assertThat(saved.getBrandColor()).isNull();
+    }
+
+    @Test
+    void refusesUnsafeOrBrokenBranding() {
+        when(profiles.findById("C1")).thenReturn(Optional.empty());
+        when(profiles.findByBookingSlug(any())).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.save("C1", valid().toBuilder().brandColor("red").build(), "a"))
+                .isInstanceOf(RegistrationException.class).hasMessageContaining("brand colour");
+        assertThatThrownBy(() -> service.save("C1", valid().toBuilder().bookingTheme("NEON").build(), "a"))
+                .isInstanceOf(RegistrationException.class).hasMessageContaining("background");
+        assertThatThrownBy(() -> service.save("C1", valid().toBuilder().logo(dataUrl("image/svg+xml", "<svg onload=alert(1)>".getBytes())).build(), "a"))
+                .isInstanceOf(RegistrationException.class).hasMessageContaining("PNG, JPG or WebP");
+        assertThatThrownBy(() -> service.save("C1", valid().toBuilder().logo(dataUrl("image/png", "<html>".getBytes())).build(), "a"))
+                .isInstanceOf(RegistrationException.class).hasMessageContaining("could not be read");
+        byte[] big = new byte[ClinicProfileService.MAX_LOGO_BYTES + 1];
+        System.arraycopy(PNG, 0, big, 0, PNG.length);
+        assertThatThrownBy(() -> service.save("C1", valid().toBuilder().logo(dataUrl("image/png", big)).build(), "a"))
+                .isInstanceOf(RegistrationException.class).hasMessageContaining("too large");
+    }
 }

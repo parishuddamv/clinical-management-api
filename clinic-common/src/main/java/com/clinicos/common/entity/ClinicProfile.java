@@ -69,6 +69,19 @@ public class ClinicProfile {
     @Column(name = "whatsapp_number", length = 20)
     private String whatsappNumber;
 
+    /** Main colour of the booking page and letterhead, as #rrggbb. */
+    @Column(name = "brand_color", length = 7)
+    private String brandColor;
+
+    /** Booking page background style: PLAIN, SOFT, GRADIENT or PATTERN. */
+    @Column(name = "booking_theme", nullable = false, length = 20)
+    @Builder.Default
+    private String bookingTheme = "SOFT";
+
+    /** Clinic logo as a data URL (image/png, image/jpeg or image/webp). */
+    @Column(columnDefinition = "TEXT")
+    private String logo;
+
     @Column(name = "updated_at", nullable = false)
     @Builder.Default
     private LocalDateTime updatedAt = LocalDateTime.now();

@@ -32,6 +32,11 @@ public class ClinicProfileService {
     private static final Pattern UPI = Pattern.compile("^[a-zA-Z0-9.\\-_]{2,256}@[a-zA-Z][a-zA-Z0-9]{1,63}$");
     private static final Pattern SLUG = Pattern.compile("^[a-z0-9](?:[a-z0-9-]{1,48}[a-z0-9])$");
     private static final Pattern PHONE = Pattern.compile("^\\+?[0-9 ()-]{7,20}$");
+    public static final Set<String> THEMES = Set.of("PLAIN", "SOFT", "GRADIENT", "PATTERN");
+    // Kept under the gateway's 256 KB request body limit once base64-encoded with the rest of the profile.
+    static final int MAX_LOGO_BYTES = 150 * 1024;
+    private static final Pattern HEX = Pattern.compile("^#[0-9a-f]{6}$");
+    private static final Pattern LOGO = Pattern.compile("^data:(image/(?:png|jpeg|webp));base64,([A-Za-z0-9+/]+={0,2})$");
     private static final Set<String> RESERVED_SLUGS = Set.of("admin", "api", "app", "book", "clinic", "clinisys", "help", "login", "support");
 
     private final ObjectProvider<ClinicProfileRepository> profiles;
@@ -67,6 +72,16 @@ public class ClinicProfileService {
         p.setPrescriptionFooter(optional(input.getPrescriptionFooter(), "Prescription footer", 300));
         p.setWhatsappNumber(matching(input.getWhatsappNumber(), PHONE, "Enter a valid WhatsApp number."));
         p.setBookingIntro(optional(input.getBookingIntro(), "Booking page message", 500));
+        String color = optional(input.getBrandColor(), "Brand colour", 7);
+        if (color != null) {
+            color = color.toLowerCase(Locale.ROOT);
+            if (!HEX.matcher(color).matches()) throw bad("Choose a brand colour such as #0f766e.");
+        }
+        p.setBrandColor(color);
+        String theme = input.getBookingTheme() == null || input.getBookingTheme().isBlank() ? "SOFT" : input.getBookingTheme().trim().toUpperCase(Locale.ROOT);
+        if (!THEMES.contains(theme)) throw bad("Choose a booking page background.");
+        p.setBookingTheme(theme);
+        p.setLogo(logo(input.getLogo()));
 
         String slug = optional(input.getBookingSlug(), "Booking link", 50);
         if (slug != null) {
@@ -94,7 +109,8 @@ public class ClinicProfileService {
     public PublicClinicDto publicBySlug(String slug) {
         ClinicProfile p = bookableBySlug(slug);
         return PublicClinicDto.builder().slug(p.getBookingSlug()).displayName(p.getDisplayName()).tagline(p.getTagline())
-                .address(p.getAddress()).phone(p.getPhone()).workingHours(p.getWorkingHours()).bookingIntro(p.getBookingIntro()).build();
+                .address(p.getAddress()).phone(p.getPhone()).workingHours(p.getWorkingHours()).bookingIntro(p.getBookingIntro())
+                .brandColor(p.getBrandColor()).bookingTheme(p.getBookingTheme()).logo(p.getLogo()).build();
     }
 
     @Transactional(readOnly = true)
@@ -116,6 +132,31 @@ public class ClinicProfileService {
                 .phone(owner == null ? null : (owner.getClinicPhone() != null ? owner.getClinicPhone() : owner.getPhone()))
                 .email(owner == null ? null : owner.getEmail())
                 .build();
+    }
+
+    /** Accepts a PNG, JPEG or WebP data URL whose bytes really are that image type. SVG is refused. */
+    static String logo(String value) {
+        if (value == null || value.isBlank()) return null;
+        java.util.regex.Matcher m = LOGO.matcher(value.trim());
+        if (!m.matches()) throw bad("Upload the logo as a PNG, JPG or WebP image.");
+        byte[] bytes;
+        try {
+            bytes = java.util.Base64.getDecoder().decode(m.group(2));
+        } catch (IllegalArgumentException e) {
+            throw bad("The logo file could not be read. Try another image.");
+        }
+        if (bytes.length > MAX_LOGO_BYTES) throw bad("The logo is too large. Use an image under 150 KB.");
+        if (!looksLike(m.group(1), bytes)) throw bad("The logo file could not be read. Try another image.");
+        return value.trim();
+    }
+
+    private static boolean looksLike(String type, byte[] b) {
+        return switch (type) {
+            case "image/png" -> b.length > 8 && (b[0] & 0xff) == 0x89 && b[1] == 'P' && b[2] == 'N' && b[3] == 'G';
+            case "image/jpeg" -> b.length > 3 && (b[0] & 0xff) == 0xff && (b[1] & 0xff) == 0xd8;
+            case "image/webp" -> b.length > 12 && b[0] == 'R' && b[1] == 'I' && b[2] == 'F' && b[3] == 'F' && b[8] == 'W' && b[9] == 'E' && b[10] == 'B' && b[11] == 'P';
+            default -> false;
+        };
     }
 
     private static String optional(String value, String label, int max) {

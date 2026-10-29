@@ -29,6 +29,10 @@ public class ClinicProfileDto {
     private String bookingSlug;
     private String bookingIntro;
     private String whatsappNumber;
+    private String brandColor;
+    private String bookingTheme;
+    /** Logo as a data URL; null or empty to remove it. */
+    private String logo;
     /** True until an admin has saved the profile once (values are defaults from registration). */
     private Boolean draft;
 
@@ -40,7 +44,8 @@ public class ClinicProfileDto {
                 .upiId(p.getUpiId()).upiPayeeName(p.getUpiPayeeName())
                 .prescriptionLanguage(p.getPrescriptionLanguage()).prescriptionFooter(p.getPrescriptionFooter())
                 .bookingEnabled(p.getBookingEnabled()).bookingSlug(p.getBookingSlug()).bookingIntro(p.getBookingIntro())
-                .whatsappNumber(p.getWhatsappNumber()).draft(draft)
+                .whatsappNumber(p.getWhatsappNumber())
+                .brandColor(p.getBrandColor()).bookingTheme(p.getBookingTheme()).logo(p.getLogo()).draft(draft)
                 .build();
     }
 }

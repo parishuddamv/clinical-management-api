@@ -18,4 +18,7 @@ public class PublicClinicDto {
     private String phone;
     private String workingHours;
     private String bookingIntro;
+    private String brandColor;
+    private String bookingTheme;
+    private String logo;
 }
