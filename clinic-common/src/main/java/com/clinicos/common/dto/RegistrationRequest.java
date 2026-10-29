@@ -58,5 +58,17 @@ public class RegistrationRequest {
     private String specialization;
 
     private String additionalNotes;
+
+    /**
+     * Optional: set when signing up with email instead of Google. Accepted from the request but
+     * never written back out (the request is stored as registration_details JSON) or logged.
+     */
+    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.WRITE_ONLY)
+    @lombok.ToString.Exclude
+    private String password;
+
+    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.WRITE_ONLY)
+    @lombok.ToString.Exclude
+    private String confirmPassword;
 }
 

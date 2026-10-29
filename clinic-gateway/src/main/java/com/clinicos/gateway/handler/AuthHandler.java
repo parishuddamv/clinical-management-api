@@ -35,6 +35,7 @@ public class AuthHandler {
     private final UserRegistrationService userRegistrationService;
     private final ObjectProvider<DemoBookingService> demoBookingService;
     private final GoogleAuthService googleAuthService;
+    private final com.clinicos.common.service.PasswordAuthService passwordAuthService;
     private final ObjectMapper objectMapper;
 
     /**
@@ -74,6 +75,57 @@ public class AuthHandler {
                     log.error("Request processing error: {}", e.getMessage(), e);
                     return error(e);
                 });
+    }
+
+    /**
+     * Handle POST /api/v1/auth/login
+     * Email and password sign-in. Same response shape as Google sign-in.
+     */
+    public Mono<ServerResponse> loginWithPassword(ServerRequest request) {
+        return request.bodyToMono(com.clinicos.common.dto.PasswordLoginRequest.class)
+                .switchIfEmpty(Mono.error(new RegistrationException(HttpStatus.BAD_REQUEST, "Email and password are required.")))
+                .publishOn(Schedulers.boundedElastic())
+                .flatMap(body -> ServerResponse.ok()
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(ApiResponse.success(passwordAuthService.login(body))))
+                .onErrorResume(this::error);
+    }
+
+    /**
+     * Handle POST /api/v1/auth/forgot-password
+     * Always answers the same way so it cannot reveal which emails have accounts.
+     */
+    public Mono<ServerResponse> forgotPassword(ServerRequest request) {
+        String ip = request.headers().firstHeader("X-Forwarded-For");
+        String clientIp = ip != null && !ip.isBlank() ? ip.split(",")[0].trim()
+                : request.remoteAddress().map(a -> a.getAddress().getHostAddress()).orElse(null);
+        return request.bodyToMono(com.clinicos.common.dto.ForgotPasswordRequest.class)
+                .switchIfEmpty(Mono.error(new RegistrationException(HttpStatus.BAD_REQUEST, "Enter a valid email address.")))
+                .publishOn(Schedulers.boundedElastic())
+                .flatMap(body -> {
+                    passwordAuthService.requestReset(body, clientIp);
+                    return ServerResponse.ok()
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(ApiResponse.success("If an account exists for this email, a reset link has been sent.", null));
+                })
+                .onErrorResume(this::error);
+    }
+
+    /**
+     * Handle POST /api/v1/auth/reset-password
+     * Sets a new password using a one-time emailed token.
+     */
+    public Mono<ServerResponse> resetPassword(ServerRequest request) {
+        return request.bodyToMono(com.clinicos.common.dto.ResetPasswordRequest.class)
+                .switchIfEmpty(Mono.error(new RegistrationException(HttpStatus.BAD_REQUEST, "Reset details are required.")))
+                .publishOn(Schedulers.boundedElastic())
+                .flatMap(body -> {
+                    passwordAuthService.resetPassword(body);
+                    return ServerResponse.ok()
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(ApiResponse.success("Password updated. You can now sign in.", null));
+                })
+                .onErrorResume(this::error);
     }
 
     /**

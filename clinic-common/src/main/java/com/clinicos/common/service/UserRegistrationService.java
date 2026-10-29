@@ -73,6 +73,20 @@ public class UserRegistrationService {
             });
         });
 
+        // Email sign-up sends a password; Google sign-up does not.
+        String passwordHash = null;
+        String password = request.getPassword();
+        if (password != null && !password.isEmpty()) {
+            if (!password.equals(request.getConfirmPassword())) {
+                throw badRequest("Enter the same password in both fields.");
+            }
+            String problem = com.clinicos.common.security.PasswordPolicy.problem(password, request.getEmail()).orElse(null);
+            if (problem != null) {
+                throw badRequest(problem);
+            }
+            passwordHash = com.clinicos.common.security.PasswordHashing.encoder().encode(password);
+        }
+
         // Create new clinic user
         ClinicUser clinicUser = ClinicUser.builder()
                 .email(request.getEmail())
@@ -85,6 +99,8 @@ public class UserRegistrationService {
                 .status(ClinicUser.UserStatus.NEW)
                 .isActive(false)
                 .isSuperAdmin(false)
+                .passwordHash(passwordHash)
+                .passwordUpdatedAt(passwordHash == null ? null : LocalDateTime.now())
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
                 .build();

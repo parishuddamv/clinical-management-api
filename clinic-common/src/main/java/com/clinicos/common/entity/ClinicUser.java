@@ -89,6 +89,22 @@ public class ClinicUser {
     @Column(name = "last_login")
     private LocalDateTime lastLogin;
 
+    /** bcrypt hash for email sign-in; null for accounts that only use Google. Never serialised. */
+    @Column(name = "password_hash", length = 100)
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @ToString.Exclude
+    private String passwordHash;
+
+    @Column(name = "password_updated_at")
+    private LocalDateTime passwordUpdatedAt;
+
+    @Column(name = "failed_login_attempts", nullable = false)
+    @Builder.Default
+    private Integer failedLoginAttempts = 0;
+
+    @Column(name = "locked_until")
+    private LocalDateTime lockedUntil;
+
     /** Original submitted fields, including optional demo and practice information (JSON text). */
     @Column(name = "registration_details", columnDefinition = "TEXT")
     private String registrationDetails;

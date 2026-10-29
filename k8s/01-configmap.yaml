@@ -34,6 +34,15 @@ data:
   KAFKA_TOPIC_NOTIFICATIONS: ""
 
   # ============================================================
+  # Email (password reset links). MAIL_USERNAME / MAIL_PASSWORD live in clinicos-secrets.
+  # Leave MAIL_HOST empty to turn reset emails off.
+  # ============================================================
+  MAIL_HOST: "smtp.gmail.com"
+  MAIL_PORT: "587"
+  MAIL_FROM: "CliniSys One <support@clinisysone.com>"
+  APP_FRONTEND_URL: "https://www.clinisysone.com"
+
+  # ============================================================
   # CORS
   # ============================================================
   # Change this to your real frontend domain before production.
