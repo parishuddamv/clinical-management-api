@@ -169,6 +169,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: docker
 
+    env:
+      # Use the auth action's credentials file instead of gcloud config-helper.
+      CLOUDSDK_CONTAINER_USE_APPLICATION_DEFAULT_CREDENTIALS: 'true'
+
     permissions:
       contents: read
 
