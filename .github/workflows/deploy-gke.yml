@@ -207,104 +207,75 @@ jobs:
 
       # ========================================================
       # Update deployments
+      # Wait between services to avoid exhausting shared Cloud SQL connections.
       # ========================================================
 
       - name: Deploy clinic-patient
         run: |
           kubectl -n $NAMESPACE set image deployment/clinic-patient \
             clinic-patient=$REGISTRY/clinic-patient:${GITHUB_SHA}
+          kubectl -n $NAMESPACE rollout status deployment/clinic-patient --timeout=12m
 
       - name: Deploy clinic-appointment
         run: |
           kubectl -n $NAMESPACE set image deployment/clinic-appointment \
             clinic-appointment=$REGISTRY/clinic-appointment:${GITHUB_SHA}
+          kubectl -n $NAMESPACE rollout status deployment/clinic-appointment --timeout=12m
 
       - name: Deploy clinic-followup
         run: |
           kubectl -n $NAMESPACE set image deployment/clinic-followup \
             clinic-followup=$REGISTRY/clinic-followup:${GITHUB_SHA}
+          kubectl -n $NAMESPACE rollout status deployment/clinic-followup --timeout=12m
 
       - name: Deploy clinic-notification
         run: |
           kubectl -n $NAMESPACE set image deployment/clinic-notification \
             clinic-notification=$REGISTRY/clinic-notification:${GITHUB_SHA}
+          kubectl -n $NAMESPACE rollout status deployment/clinic-notification --timeout=12m
 
       - name: Deploy clinic-billing
         run: |
           kubectl -n $NAMESPACE set image deployment/clinic-billing \
             clinic-billing=$REGISTRY/clinic-billing:${GITHUB_SHA}
+          kubectl -n $NAMESPACE rollout status deployment/clinic-billing --timeout=12m
 
       - name: Deploy clinic-emr
         run: |
           kubectl -n $NAMESPACE set image deployment/clinic-emr \
             clinic-emr=$REGISTRY/clinic-emr:${GITHUB_SHA}
+          kubectl -n $NAMESPACE rollout status deployment/clinic-emr --timeout=12m
 
       - name: Deploy clinic-subscription
         run: |
           kubectl -n $NAMESPACE set image deployment/clinic-subscription \
             clinic-subscription=$REGISTRY/clinic-subscription:${GITHUB_SHA}
+          kubectl -n $NAMESPACE rollout status deployment/clinic-subscription --timeout=12m
 
       - name: Deploy clinic-staff
         run: |
           kubectl -n $NAMESPACE set image deployment/clinic-staff \
             clinic-staff=$REGISTRY/clinic-staff:${GITHUB_SHA}
+          kubectl -n $NAMESPACE rollout status deployment/clinic-staff --timeout=12m
 
       - name: Deploy clinic-feedback
         run: |
           kubectl -n $NAMESPACE set image deployment/clinic-feedback \
             clinic-feedback=$REGISTRY/clinic-feedback:${GITHUB_SHA}
+          kubectl -n $NAMESPACE rollout status deployment/clinic-feedback --timeout=12m
 
       - name: Deploy clinic-gateway
         run: |
           kubectl -n $NAMESPACE set image deployment/clinic-gateway \
             clinic-gateway=$REGISTRY/clinic-gateway:${GITHUB_SHA}
+          kubectl -n $NAMESPACE rollout status deployment/clinic-gateway --timeout=12m
 
-      # ========================================================
-      # Wait for rollout
-      # ========================================================
-
-      - name: Wait for deployments
+      - name: Show deployment failure diagnostics
+        if: failure()
         run: |
-
-          kubectl -n $NAMESPACE rollout status \
-            deployment/clinic-patient \
-            --timeout=12m
-
-          kubectl -n $NAMESPACE rollout status \
-            deployment/clinic-appointment \
-            --timeout=12m
-
-          kubectl -n $NAMESPACE rollout status \
-            deployment/clinic-followup \
-            --timeout=12m
-
-          kubectl -n $NAMESPACE rollout status \
-            deployment/clinic-notification \
-            --timeout=12m
-
-          kubectl -n $NAMESPACE rollout status \
-            deployment/clinic-billing \
-            --timeout=12m
-
-          kubectl -n $NAMESPACE rollout status \
-            deployment/clinic-emr \
-            --timeout=12m
-
-          kubectl -n $NAMESPACE rollout status \
-            deployment/clinic-subscription \
-            --timeout=12m
-
-          kubectl -n $NAMESPACE rollout status \
-            deployment/clinic-staff \
-            --timeout=12m
-
-          kubectl -n $NAMESPACE rollout status \
-            deployment/clinic-feedback \
-            --timeout=12m
-
-          kubectl -n $NAMESPACE rollout status \
-            deployment/clinic-gateway \
-            --timeout=12m
+          kubectl -n $NAMESPACE get deployments -o wide || true
+          kubectl -n $NAMESPACE get pods -o wide || true
+          kubectl -n $NAMESPACE get events --sort-by=.metadata.creationTimestamp || true
 
       # ========================================================
       # Production verification
