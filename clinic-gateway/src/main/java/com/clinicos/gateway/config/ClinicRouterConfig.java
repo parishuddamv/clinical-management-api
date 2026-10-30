@@ -26,6 +26,7 @@ public class ClinicRouterConfig {
                 .andRoute(PUT("/api/v1/clinic/profile"), clinic::saveProfile)
                 .andRoute(GET("/api/v1/public/clinics/{slug}"), clinic::publicClinic)
                 .andRoute(GET("/api/v1/public/clinics/{slug}/doctors"), booking::publicDoctors)
+                .andRoute(GET("/api/v1/public/clinics/{slug}/slots"), booking::publicSlots)
                 .andRoute(POST("/api/v1/public/clinics/{slug}/booking-requests"), booking::publicRequest)
                 .andRoute(GET("/api/v1/clinic/booking-requests"), booking::list)
                 .andRoute(GET("/api/v1/clinic/booking-requests/count"), booking::countNew)

@@ -27,6 +27,7 @@ public class BookingHandler {
     private final BookingService bookings;
     private final ClinicProfileService profiles;
     private final DoctorDirectory doctors;
+    private final com.clinicos.gateway.booking.SlotFinder slots;
     private final ClinicAccess clinicAccess;
     private final AuditService audit;
 
@@ -35,6 +36,26 @@ public class BookingHandler {
             ClinicProfile clinic = profiles.bookableBySlug(request.pathVariable("slug"));
             return doctors.doctors(clinic.getClinicId());
         }).flatMap(ClinicHandler::ok).onErrorResume(ClinicHandler::error);
+    }
+
+    /** GET /api/v1/public/clinics/{slug}/slots?date=2026-11-07&doctorId=3 - free times, no patient details. */
+    public Mono<ServerResponse> publicSlots(ServerRequest request) {
+        return Mono.fromCallable(() -> {
+            ClinicProfile clinic = profiles.bookableBySlug(request.pathVariable("slug"));
+            java.time.LocalDate date;
+            try {
+                date = java.time.LocalDate.parse(request.queryParam("date").orElse(""));
+            } catch (java.time.format.DateTimeParseException e) {
+                throw new RegistrationException(HttpStatus.BAD_REQUEST, "Choose a date.");
+            }
+            java.time.LocalDate today = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Kolkata"));
+            if (date.isBefore(today) || date.isAfter(today.plusDays(60))) {
+                throw new RegistrationException(HttpStatus.BAD_REQUEST, "Choose a date within the next 60 days.");
+            }
+            Long doctorId = request.queryParam("doctorId").filter(v -> !v.isBlank()).map(Long::valueOf).orElse(null);
+            return slots.find(clinic.getClinicId(), date, doctorId);
+        }).flatMap(ClinicHandler::ok).onErrorResume(e -> ClinicHandler.error(e instanceof NumberFormatException
+                ? new RegistrationException(HttpStatus.BAD_REQUEST, "Invalid doctor.") : e));
     }
 
     public Mono<ServerResponse> publicRequest(ServerRequest request) {

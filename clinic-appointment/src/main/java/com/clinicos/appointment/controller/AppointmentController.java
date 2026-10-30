@@ -91,6 +91,19 @@ public class AppointmentController {
         return ResponseEntity.ok(ApiResponse.success(results));
     }
 
+    /**
+     * GET /api/v1/appointments/day?date=2026-11-07&doctorId=3 - one day's appointments (cancelled
+     * ones left out), so the booking calendar can grey out times that are already taken.
+     */
+    @GetMapping("/day")
+    public ResponseEntity<ApiResponse<java.util.List<AppointmentResponse>>> getDay(
+            @RequestParam @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate date,
+            @RequestParam(required = false) Long doctorId,
+            Authentication authentication) {
+        String clinicId = getClinicId(authentication);
+        return ResponseEntity.ok(ApiResponse.success(appointmentService.getDay(clinicId, date, doctorId)));
+    }
+
     private String getClinicId(Authentication authentication) {
         return (String) authentication.getDetails();
     }

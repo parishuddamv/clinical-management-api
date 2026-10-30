@@ -1,5 +1,7 @@
 package com.clinicos.appointment.client;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -79,11 +81,15 @@ public class StaffClient {
         }
     }
 
+    // The shared ObjectMapper (clinic-common JacksonConfig) fails on unknown fields, and the staff
+    // service returns many more than these (message, timestamp, consultationFee, address, ...).
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public record StaffResponse(
             boolean success,
             StaffMemberInfo data
     ) {}
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public record StaffMemberInfo(
             Long id,
             String firstName,

@@ -139,6 +139,19 @@ public class AppointmentService {
         return page.map(AppointmentResponse::from);
     }
 
+    /** A day's booked appointments, optionally for one doctor; cancelled and no-show ones are free again. */
+    @Transactional(readOnly = true)
+    public java.util.List<AppointmentResponse> getDay(String clinicId, LocalDate date, Long doctorId) {
+        Page<Appointment> page = appointmentRepository.findByClinicIdAndDateRange(
+                clinicId, date.atStartOfDay(), date.plusDays(1).atStartOfDay(),
+                org.springframework.data.domain.PageRequest.of(0, 500));
+        return page.getContent().stream()
+                .filter(a -> a.getStatus() != AppointmentStatus.CANCELLED && a.getStatus() != AppointmentStatus.NO_SHOW)
+                .filter(a -> doctorId == null || doctorId.equals(a.getDoctorId()))
+                .map(AppointmentResponse::from)
+                .toList();
+    }
+
     private StaffMemberInfo validateDoctor(
             Long doctorId,
             String clinicId,
