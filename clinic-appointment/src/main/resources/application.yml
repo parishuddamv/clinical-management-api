@@ -50,6 +50,10 @@ server:
 
 
 app:
+  services:
+    # Kubernetes sets SERVICE_STAFF_URL (k8s/01-configmap.yaml); without this mapping the
+    # service called localhost and every new appointment failed with a 500.
+    staff-url: ${SERVICE_STAFF_URL:http://localhost:8087}
   jwt:
     secret: ${JWT_SECRET:your-secret-key-minimum-64-chars-for-hs512-algorithm-security-requirement}
     expiration: ${JWT_EXPIRATION:86400000}

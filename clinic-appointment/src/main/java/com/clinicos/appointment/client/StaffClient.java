@@ -12,7 +12,7 @@ public class StaffClient {
 
     private final RestClient.Builder restClientBuilder;
 
-    @Value("${app.services.staff-url:http://localhost:8087}")
+    @Value("${app.services.staff-url:${SERVICE_STAFF_URL:http://localhost:8087}}")
     private String staffServiceUrl;
 
     public StaffClient(RestClient.Builder restClientBuilder) {
@@ -70,6 +70,8 @@ public class StaffClient {
 
             return doctor;
 
+        } catch (org.springframework.web.client.HttpClientErrorException.NotFound ex) {
+            throw new IllegalArgumentException("Doctor not found: " + staffId);
         } catch (RestClientException ex) {
             throw new IllegalStateException(
                     "Unable to validate doctor with Staff service: " + staffId,
