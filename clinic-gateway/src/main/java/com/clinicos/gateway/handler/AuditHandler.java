@@ -25,7 +25,7 @@ public class AuditHandler {
 
     public Mono<ServerResponse> search(ServerRequest request) {
         return Mono.fromCallable(() -> {
-            ClinicUser admin = clinicAccess.admin(request);
+            ClinicUser admin = clinicAccess.require(request, com.clinicos.common.security.RolePolicy.Page.AUDIT_LOG);
             return audit.search(admin.getClinicId(), param(request, "actor"), param(request, "resourceType"), param(request, "resourceId"),
                     date(request, "from"), date(request, "to"), integer(request, "page", 0), integer(request, "size", 50));
         }).flatMap(ClinicHandler::ok).onErrorResume(ClinicHandler::error);

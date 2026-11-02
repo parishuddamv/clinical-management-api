@@ -2,6 +2,7 @@ package com.clinicos.gateway.config;
 
 import com.clinicos.gateway.handler.AuditHandler;
 import com.clinicos.gateway.handler.BookingHandler;
+import com.clinicos.gateway.handler.StaffAccessHandler;
 import com.clinicos.gateway.handler.ClinicHandler;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -21,8 +22,13 @@ import static org.springframework.web.reactive.function.server.RouterFunctions.r
 public class ClinicRouterConfig {
 
     @Bean
-    public RouterFunction<ServerResponse> clinicRoutes(ClinicHandler clinic, AuditHandler audit, BookingHandler booking) {
+    public RouterFunction<ServerResponse> clinicRoutes(ClinicHandler clinic, AuditHandler audit, BookingHandler booking, StaffAccessHandler staff) {
         return route(GET("/api/v1/clinic/profile"), clinic::getProfile)
+                .andRoute(GET("/api/v1/clinic/me"), staff::me)
+                .andRoute(GET("/api/v1/clinic/staff-access"), staff::list)
+                .andRoute(POST("/api/v1/clinic/staff-access"), staff::invite)
+                .andRoute(POST("/api/v1/clinic/staff-access/resend"), staff::resend)
+                .andRoute(POST("/api/v1/clinic/staff-access/revoke"), staff::revoke)
                 .andRoute(PUT("/api/v1/clinic/profile"), clinic::saveProfile)
                 .andRoute(GET("/api/v1/public/clinics/{slug}"), clinic::publicClinic)
                 .andRoute(GET("/api/v1/public/clinics/{slug}/doctors"), booking::publicDoctors)

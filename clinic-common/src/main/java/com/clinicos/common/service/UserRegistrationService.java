@@ -232,7 +232,8 @@ public class UserRegistrationService {
     public Page<ClinicUserResponse> registrations(String authorization, String status, String search, int page, int size) {
         access.requireSuperAdmin(authorization);
         validatePage(page, size);
-        Specification<ClinicUser> filter = (root, query, cb) -> cb.conjunction();
+        // Clinic registrations only: staff invited by an owner are managed by that clinic, not reviewed here.
+        Specification<ClinicUser> filter = (root, query, cb) -> cb.isNull(root.get("invitedAt"));
         if (status != null && !status.isBlank()) {
             ClinicUser.UserStatus value;
             try {

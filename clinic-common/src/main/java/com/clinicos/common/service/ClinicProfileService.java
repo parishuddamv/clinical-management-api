@@ -123,7 +123,8 @@ public class ClinicProfileService {
 
     private ClinicProfile defaults(String clinicId) {
         ClinicUser owner = users.getObject().findByClinicId(clinicId).stream()
-                .sorted(Comparator.comparing((ClinicUser u) -> !"ADMIN".equalsIgnoreCase(u.getRole())).thenComparing(ClinicUser::getId))
+                .sorted(Comparator.comparing(ClinicUser::isInvitedStaff)
+                        .thenComparing((ClinicUser u) -> !"ADMIN".equalsIgnoreCase(u.getRole())).thenComparing(ClinicUser::getId))
                 .findFirst().orElse(null);
         return ClinicProfile.builder()
                 .clinicId(clinicId)

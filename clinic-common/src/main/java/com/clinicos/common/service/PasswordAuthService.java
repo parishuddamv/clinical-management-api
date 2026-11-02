@@ -153,6 +153,28 @@ public class PasswordAuthService {
         }
     }
 
+    /**
+     * A one-time link for an invited staff member to choose their password. Uses the same tokens as
+     * password reset (hashed, single use), valid for {@code validDays}. Earlier links stop working.
+     */
+    @Transactional
+    public String issueInviteLink(ClinicUser user, int validDays) {
+        PasswordResetTokenRepository tokens = resetTokens.getObject();
+        LocalDateTime now = LocalDateTime.now();
+        byte[] raw = new byte[32];
+        RANDOM.nextBytes(raw);
+        String token = Base64.getUrlEncoder().withoutPadding().encodeToString(raw);
+        tokens.retireOutstanding(user.getId(), now);
+        tokens.save(PasswordResetToken.builder()
+                .userId(user.getId())
+                .tokenHash(sha256(token))
+                .createdAt(now)
+                .expiresAt(now.plusDays(validDays))
+                .requestedIp("invite")
+                .build());
+        return frontendUrl.replaceAll("/+$", "") + "/reset-password?token=" + token + "&invite=1";
+    }
+
     @Transactional
     public void resetPassword(ResetPasswordRequest request) {
         if (request == null || request.getToken() == null || request.getToken().isBlank()) {

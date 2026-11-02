@@ -30,11 +30,20 @@ public class ClinicAccess {
         return access.requireClinicAccess(authorization, tokens.extractClinicId(token));
     }
 
-    /** As {@link #member}, but only the clinic's administrator. */
+    /** As {@link #member}, but only the clinic owner (who registered it) or a staff member with the ADMIN role. */
     public ClinicUser admin(ServerRequest request) {
         ClinicUser caller = member(request);
-        if (!"ADMIN".equalsIgnoreCase(caller.getRole()) && !Boolean.TRUE.equals(caller.getIsSuperAdmin())) {
-            throw new RegistrationException(HttpStatus.FORBIDDEN, "Only the clinic administrator can do this.");
+        boolean full = !caller.isInvitedStaff() || "ADMIN".equalsIgnoreCase(caller.getRole()) || Boolean.TRUE.equals(caller.getIsSuperAdmin());
+        if (!full) throw new RegistrationException(HttpStatus.FORBIDDEN, "Only the clinic owner can do this.");
+        return caller;
+    }
+
+    /** As {@link #member}, but only if the caller's role includes this part of the app. */
+    public ClinicUser require(ServerRequest request, com.clinicos.common.security.RolePolicy.Page page) {
+        ClinicUser caller = member(request);
+        if (!com.clinicos.common.security.RolePolicy.pages(caller.getRole(), caller.isInvitedStaff()).contains(page)) {
+            throw new RegistrationException(HttpStatus.FORBIDDEN, com.clinicos.common.security.RolePolicy.refusal(
+                    caller.getRole(), true, request.methodName(), request.path()).orElse("Your role doesn't include this. Ask the clinic owner if you need access."));
         }
         return caller;
     }

@@ -16,7 +16,10 @@ public class CorsConfig {
     @Value("${app.security.cors.allowed-origins}")
     private String allowedOrigins;
 
+    // First in the chain, so every reply (including role refusals from RoleAccessFilter) carries CORS
+    // headers and the browser shows the real message instead of a network error.
     @Bean
+    @org.springframework.core.annotation.Order(org.springframework.core.Ordered.HIGHEST_PRECEDENCE)
     public CorsWebFilter corsWebFilter() {
 
         CorsConfiguration configuration = new CorsConfiguration();

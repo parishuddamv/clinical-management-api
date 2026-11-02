@@ -35,7 +35,7 @@ public class ClinicHandler {
                 .switchIfEmpty(Mono.error(new RegistrationException(HttpStatus.BAD_REQUEST, "Profile details are required.")))
                 .publishOn(reactor.core.scheduler.Schedulers.boundedElastic())
                 .map(body -> {
-                    ClinicUser admin = clinicAccess.admin(request);
+                    ClinicUser admin = clinicAccess.require(request, com.clinicos.common.security.RolePolicy.Page.SETTINGS_CLINIC);
                     ClinicProfileDto saved = profiles.save(admin.getClinicId(), body, admin.getEmail());
                     audit.record(com.clinicos.common.entity.AuditEvent.builder().action("UPDATE").resourceType("clinic-profile")
                             .httpMethod("PUT").path("/api/v1/clinic/profile").status(200).build(),

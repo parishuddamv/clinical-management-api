@@ -109,6 +109,22 @@ public class ClinicUser {
     @Column(name = "registration_details", columnDefinition = "TEXT")
     private String registrationDetails;
 
+    /** Set for staff invited by the clinic owner; null for the owner who registered the clinic. */
+    @Column(name = "invited_at")
+    private LocalDateTime invitedAt;
+
+    @Column(name = "invited_by")
+    private String invitedBy;
+
+    /** The matching record in the staff service, when invited from Staff. */
+    @Column(name = "staff_member_id")
+    private Long staffMemberId;
+
+    /** Invited staff see only their role's pages; owners see everything. */
+    public boolean isInvitedStaff() {
+        return invitedAt != null;
+    }
+
     @PreUpdate
     public void preUpdate() {
         this.updatedAt = LocalDateTime.now();
