@@ -1,11 +1,14 @@
 package com.clinicos.staff;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.yaml.snakeyaml.Yaml;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -22,46 +25,75 @@ class DeployGkeWorkflowTest {
         }
     }
 
-    @Test
-    void everyImageUpdateWaitsForItsOwnRolloutBeforeTheNextService() throws Exception {
-        List<String> services = List.of("clinic-patient", "clinic-appointment", "clinic-followup",
-                "clinic-notification", "clinic-billing", "clinic-emr", "clinic-subscription",
-                "clinic-staff", "clinic-feedback", "clinic-gateway");
+    private String deploymentScript() throws IOException {
         var updates = deploySteps().stream()
                 .filter(step -> step.getOrDefault("run", "").toString().contains("set image"))
                 .toList();
-        assertThat(updates).hasSize(services.size());
-        for (int i = 0; i < services.size(); i++) {
-            var step = updates.get(i);
-            String service = services.get(i);
-            assertThat(step).doesNotContainKeys("continue-on-error", "if");
-            assertThat(step.get("run").toString()).containsSubsequence(
-                    "set image deployment/" + service,
-                    service + "=$REGISTRY/" + service + ":${GITHUB_SHA}",
-                    "kubectl -n $NAMESPACE rollout status deployment/" + service + " --timeout=12m");
-        }
+        assertThat(updates).hasSize(1);
+        var step = updates.getFirst();
+        assertThat(step).doesNotContainKeys("continue-on-error", "if");
+        return step.get("run").toString();
     }
 
-    @Test
-    void rolloutFailureStopsDeploymentWithoutUpdatingLaterServices() throws Exception {
-        var script = new StringBuilder("""
+    private Process runDeployment(String services, String failingCommand) throws Exception {
+        String script = """
                 kubectl() {
-                  if [[ "$*" == *"rollout status"* ]]; then
+                  echo "kubectl $*"
+                  if [[ -n "$FAILING_COMMAND" && "$*" == *"$FAILING_COMMAND"* ]]; then
                     return 1
                   fi
-                  echo image-updated
+                  return 0
                 }
-                """);
-        for (var step : deploySteps()) {
-            if (step.getOrDefault("run", "").toString().contains("set image")) {
-                script.append(step.get("run"));
+                """ + deploymentScript();
+        var builder = new ProcessBuilder("bash", "-e", "-c", script).redirectErrorStream(true);
+        builder.environment().putAll(Map.of(
+                "SERVICES", services,
+                "NAMESPACE", "test-clinic",
+                "REGISTRY", "example.invalid/clinicos",
+                "GITHUB_SHA", "test-sha",
+                "FAILING_COMMAND", failingCommand));
+        return builder.start();
+    }
+
+    private List<String> kubectlCalls(Process process) throws IOException {
+        String output = new String(process.getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        return output.lines().filter(line -> line.startsWith("kubectl ")).toList();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "clinic-patient clinic-appointment clinic-followup clinic-notification clinic-billing "
+                    + "clinic-emr clinic-subscription clinic-staff clinic-feedback clinic-gateway",
+            "clinic-staff clinic-gateway", "clinic-feedback", ""
+    })
+    void everyImageUpdateWaitsForItsOwnRolloutBeforeTheNextService(String services) throws Exception {
+        var process = runDeployment(services, "");
+        var calls = kubectlCalls(process);
+        assertThat(process.waitFor()).isZero();
+        var expected = new ArrayList<String>();
+        for (String service : services.split(" ")) {
+            if (!service.isEmpty()) {
+                expected.add("kubectl -n test-clinic set image deployment/" + service
+                        + " " + service + "=example.invalid/clinicos/" + service + ":test-sha");
+                expected.add("kubectl -n test-clinic rollout status deployment/" + service + " --timeout=12m");
             }
         }
-        var process = new ProcessBuilder("bash", "-e", "-c", script.toString())
-                .redirectErrorStream(true).start();
-        String output = new String(process.getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(calls).containsExactlyElementsOf(expected);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"set image", "rollout status"})
+    void deploymentFailureStopsWithoutUpdatingLaterServices(String failingCommand) throws Exception {
+        var process = runDeployment("clinic-staff clinic-gateway", failingCommand);
+        var calls = kubectlCalls(process);
         assertThat(process.waitFor()).isNotZero();
-        assertThat(output.lines().toList()).containsExactly("image-updated");
+        var expected = new ArrayList<String>();
+        expected.add("kubectl -n test-clinic set image deployment/clinic-staff "
+                + "clinic-staff=example.invalid/clinicos/clinic-staff:test-sha");
+        if (failingCommand.equals("rollout status")) {
+            expected.add("kubectl -n test-clinic rollout status deployment/clinic-staff --timeout=12m");
+        }
+        assertThat(calls).containsExactlyElementsOf(expected);
     }
 
     @Test
