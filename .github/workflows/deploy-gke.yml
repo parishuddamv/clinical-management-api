@@ -1,11 +1,28 @@
 name: Deploy ClinicOS to GKE
 
+# Builds, pushes and deploys ONLY the microservices whose code changed in the push.
+#   - A change under clinic-<name>/          -> that service only
+#   - A change under clinic-common/ or to the root pom.xml -> every service
+#     (all services depend on clinic-common, so they must be rebuilt)
+#   - Changes elsewhere (docs, k8s/, scripts, ...) -> nothing is deployed
+# Manual runs (Actions > Run workflow) can deploy "all" or a comma-separated list.
+
 on:
   push:
     branches:
       - master
 
   workflow_dispatch:
+    inputs:
+      services:
+        description: 'Services to deploy: "all" or comma-separated, e.g. clinic-staff,clinic-gateway'
+        required: true
+        default: all
+
+# Never run two production deploys at the same time.
+concurrency:
+  group: deploy-gke-production
+  cancel-in-progress: false
 
 env:
   PROJECT_ID: clinicos-prod-2026
@@ -14,48 +31,111 @@ env:
   CLUSTER_ZONE: asia-south1-a
   NAMESPACE: clinicos
   REGISTRY: asia-south1-docker.pkg.dev/clinicos-prod-2026/clinicos-repo
+  # Deploy order (gateway last). Keep in sync with the modules in pom.xml.
+  ALL_SERVICES: >-
+    clinic-patient clinic-appointment clinic-followup clinic-notification
+    clinic-billing clinic-emr clinic-subscription clinic-staff clinic-feedback
+    clinic-gateway
 
 jobs:
 
   # ============================================================
-  # BUILD + TEST
+  # DETECT CHANGED SERVICES
   # ============================================================
-  build:
-    name: Build and Test
+  changes:
+    name: Detect changed services
     runs-on: ubuntu-latest
+
+    outputs:
+      services: ${{ steps.detect.outputs.services }}
+      modules: ${{ steps.detect.outputs.modules }}
+      any: ${{ steps.detect.outputs.any }}
 
     steps:
 
       - name: Checkout source
         uses: actions/checkout@v4
-
-      - name: Setup Java 21
-        uses: actions/setup-java@v4
         with:
-          distribution: temurin
-          java-version: '21'
-          cache: maven
+          fetch-depth: 0
 
-      - name: Build all modules
+      - name: Work out which services to deploy
+        id: detect
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          INPUT_SERVICES: ${{ inputs.services }}
         run: |
-          mvn clean package -DskipTests
+          set -euo pipefail
+          SELECTED=""
 
-      - name: Run tests
-        run: |
-          mvn test
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            REQUESTED=$(echo "${INPUT_SERVICES:-all}" | tr ',' ' ' | xargs)
+            echo "Manual run, requested: $REQUESTED"
+            for s in $REQUESTED; do
+              if [ "$s" != "all" ] && ! echo " $ALL_SERVICES " | grep -q " $s "; then
+                echo "::error::Unknown service '$s'. Valid: $ALL_SERVICES"
+                exit 1
+              fi
+            done
+            for s in $ALL_SERVICES; do
+              if echo " $REQUESTED " | grep -qE " ($s|all) "; then SELECTED="$SELECTED $s"; fi
+            done
+
+          elif [ -z "$BEFORE_SHA" ] \
+               || [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ] \
+               || ! git cat-file -e "${BEFORE_SHA}^{commit}" 2>/dev/null; then
+            echo "No usable previous commit (new branch or force push): deploying all services."
+            SELECTED="$ALL_SERVICES"
+
+          else
+            CHANGED=$(git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA")
+            echo "Changed files:"
+            echo "$CHANGED" | sed 's/^/  /'
+
+            if echo "$CHANGED" | grep -qE '^(clinic-common/|pom\.xml$)'; then
+              echo "clinic-common or root pom.xml changed: every service depends on it, deploying all."
+              SELECTED="$ALL_SERVICES"
+            else
+              for s in $ALL_SERVICES; do
+                if echo "$CHANGED" | grep -q "^$s/"; then SELECTED="$SELECTED $s"; fi
+              done
+            fi
+          fi
+
+          SELECTED=$(echo "$SELECTED" | xargs)
+          if [ -z "$SELECTED" ]; then
+            echo "No service code changed: nothing to build or deploy."
+            echo "any=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Services to deploy: $SELECTED"
+            echo "any=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "services=$SELECTED" >> "$GITHUB_OUTPUT"
+          echo "modules=$(echo "$SELECTED" | tr ' ' ',')" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "### Services selected for deployment"
+            if [ -z "$SELECTED" ]; then echo "None (no service code changed)"; else
+              for s in $SELECTED; do echo "- $s"; done; fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
 
   # ============================================================
-  # BUILD + PUSH DOCKER IMAGES
+  # BUILD + TEST + PUSH DOCKER IMAGES (changed services only)
   # ============================================================
   docker:
-    name: Build and Push Docker Images
+    name: Build, test and push images
     runs-on: ubuntu-latest
-    needs: build
+    needs: changes
+    if: needs.changes.outputs.any == 'true'
 
     permissions:
       contents: read
 
+    env:
+      SERVICES: ${{ needs.changes.outputs.services }}
+      MODULES: ${{ needs.changes.outputs.modules }}
+
     steps:
 
       - name: Checkout source
@@ -68,9 +148,10 @@ jobs:
           java-version: '21'
           cache: maven
 
-      - name: Build Maven artifacts
+      # -am also builds (and tests) clinic-common and the parent POM.
+      - name: Build and test changed modules
         run: |
-          mvn clean package -DskipTests
+          mvn -B clean verify -pl "$MODULES" -am
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -86,92 +167,30 @@ jobs:
         run: |
           gcloud auth configure-docker asia-south1-docker.pkg.dev --quiet
 
-      # --------------------------------------------------------
-      # Build images
-      # --------------------------------------------------------
-
-      - name: Build Docker images
+      - name: Build and push Docker images
         run: |
-
-          docker build \
-            -t $REGISTRY/clinic-patient:${GITHUB_SHA} \
-            ./clinic-patient
-
-          docker build \
-            -t $REGISTRY/clinic-appointment:${GITHUB_SHA} \
-            ./clinic-appointment
-
-          docker build \
-            -t $REGISTRY/clinic-followup:${GITHUB_SHA} \
-            ./clinic-followup
-
-          docker build \
-            -t $REGISTRY/clinic-notification:${GITHUB_SHA} \
-            ./clinic-notification
-
-          docker build \
-            -t $REGISTRY/clinic-billing:${GITHUB_SHA} \
-            ./clinic-billing
-
-          docker build \
-            -t $REGISTRY/clinic-emr:${GITHUB_SHA} \
-            ./clinic-emr
-
-          docker build \
-            -t $REGISTRY/clinic-subscription:${GITHUB_SHA} \
-            ./clinic-subscription
-
-          docker build \
-            -t $REGISTRY/clinic-staff:${GITHUB_SHA} \
-            ./clinic-staff
-
-          docker build \
-            -t $REGISTRY/clinic-feedback:${GITHUB_SHA} \
-            ./clinic-feedback
-
-          docker build \
-            -t $REGISTRY/clinic-gateway:${GITHUB_SHA} \
-            ./clinic-gateway
-
-      # --------------------------------------------------------
-      # Push images
-      # --------------------------------------------------------
-
-      - name: Push Docker images
-        run: |
-
-          docker push $REGISTRY/clinic-patient:${GITHUB_SHA}
-
-          docker push $REGISTRY/clinic-appointment:${GITHUB_SHA}
-
-          docker push $REGISTRY/clinic-followup:${GITHUB_SHA}
-
-          docker push $REGISTRY/clinic-notification:${GITHUB_SHA}
-
-          docker push $REGISTRY/clinic-billing:${GITHUB_SHA}
-
-          docker push $REGISTRY/clinic-emr:${GITHUB_SHA}
-
-          docker push $REGISTRY/clinic-subscription:${GITHUB_SHA}
-
-          docker push $REGISTRY/clinic-staff:${GITHUB_SHA}
-
-          docker push $REGISTRY/clinic-feedback:${GITHUB_SHA}
-
-          docker push $REGISTRY/clinic-gateway:${GITHUB_SHA}
+          set -euo pipefail
+          for s in $SERVICES; do
+            echo "::group::$s"
+            docker build -t "$REGISTRY/$s:${GITHUB_SHA}" "./$s"
+            docker push "$REGISTRY/$s:${GITHUB_SHA}"
+            echo "::endgroup::"
+          done
 
 
   # ============================================================
-  # DEPLOY TO GKE
+  # DEPLOY TO GKE (changed services only)
   # ============================================================
   deploy:
     name: Deploy to GKE Production
     runs-on: ubuntu-latest
-    needs: docker
+    needs: [changes, docker]
+    if: needs.changes.outputs.any == 'true'
 
     env:
       # Use the auth action's credentials file instead of gcloud config-helper.
       CLOUDSDK_CONTAINER_USE_APPLICATION_DEFAULT_CREDENTIALS: 'true'
+      SERVICES: ${{ needs.changes.outputs.services }}
 
     permissions:
       contents: read
@@ -205,70 +224,18 @@ jobs:
           kubectl cluster-info
           kubectl get nodes
 
-      # ========================================================
-      # Update deployments
-      # Wait between services to avoid exhausting shared Cloud SQL connections.
-      # ========================================================
-
-      - name: Deploy clinic-patient
+      # One service at a time, waiting for each rollout,
+      # to avoid exhausting shared Cloud SQL connections.
+      - name: Deploy changed services
         run: |
-          kubectl -n $NAMESPACE set image deployment/clinic-patient \
-            clinic-patient=$REGISTRY/clinic-patient:${GITHUB_SHA}
-          kubectl -n $NAMESPACE rollout status deployment/clinic-patient --timeout=12m
-
-      - name: Deploy clinic-appointment
-        run: |
-          kubectl -n $NAMESPACE set image deployment/clinic-appointment \
-            clinic-appointment=$REGISTRY/clinic-appointment:${GITHUB_SHA}
-          kubectl -n $NAMESPACE rollout status deployment/clinic-appointment --timeout=12m
-
-      - name: Deploy clinic-followup
-        run: |
-          kubectl -n $NAMESPACE set image deployment/clinic-followup \
-            clinic-followup=$REGISTRY/clinic-followup:${GITHUB_SHA}
-          kubectl -n $NAMESPACE rollout status deployment/clinic-followup --timeout=12m
-
-      - name: Deploy clinic-notification
-        run: |
-          kubectl -n $NAMESPACE set image deployment/clinic-notification \
-            clinic-notification=$REGISTRY/clinic-notification:${GITHUB_SHA}
-          kubectl -n $NAMESPACE rollout status deployment/clinic-notification --timeout=12m
-
-      - name: Deploy clinic-billing
-        run: |
-          kubectl -n $NAMESPACE set image deployment/clinic-billing \
-            clinic-billing=$REGISTRY/clinic-billing:${GITHUB_SHA}
-          kubectl -n $NAMESPACE rollout status deployment/clinic-billing --timeout=12m
-
-      - name: Deploy clinic-emr
-        run: |
-          kubectl -n $NAMESPACE set image deployment/clinic-emr \
-            clinic-emr=$REGISTRY/clinic-emr:${GITHUB_SHA}
-          kubectl -n $NAMESPACE rollout status deployment/clinic-emr --timeout=12m
-
-      - name: Deploy clinic-subscription
-        run: |
-          kubectl -n $NAMESPACE set image deployment/clinic-subscription \
-            clinic-subscription=$REGISTRY/clinic-subscription:${GITHUB_SHA}
-          kubectl -n $NAMESPACE rollout status deployment/clinic-subscription --timeout=12m
-
-      - name: Deploy clinic-staff
-        run: |
-          kubectl -n $NAMESPACE set image deployment/clinic-staff \
-            clinic-staff=$REGISTRY/clinic-staff:${GITHUB_SHA}
-          kubectl -n $NAMESPACE rollout status deployment/clinic-staff --timeout=12m
-
-      - name: Deploy clinic-feedback
-        run: |
-          kubectl -n $NAMESPACE set image deployment/clinic-feedback \
-            clinic-feedback=$REGISTRY/clinic-feedback:${GITHUB_SHA}
-          kubectl -n $NAMESPACE rollout status deployment/clinic-feedback --timeout=12m
-
-      - name: Deploy clinic-gateway
-        run: |
-          kubectl -n $NAMESPACE set image deployment/clinic-gateway \
-            clinic-gateway=$REGISTRY/clinic-gateway:${GITHUB_SHA}
-          kubectl -n $NAMESPACE rollout status deployment/clinic-gateway --timeout=12m
+          set -euo pipefail
+          for s in $SERVICES; do
+            echo "::group::Deploy $s"
+            kubectl -n $NAMESPACE set image deployment/$s \
+              $s=$REGISTRY/$s:${GITHUB_SHA}
+            kubectl -n $NAMESPACE rollout status deployment/$s --timeout=12m
+            echo "::endgroup::"
+          done
 
       - name: Show deployment failure diagnostics
         if: failure()
@@ -277,30 +244,12 @@ jobs:
           kubectl -n $NAMESPACE get pods -o wide || true
           kubectl -n $NAMESPACE get events --sort-by=.metadata.creationTimestamp || true
 
-      # ========================================================
-      # Production verification
-      # ========================================================
-
       - name: Show production status
         run: |
-
           echo "======================================"
-          echo "ClinicOS Production Deployment"
+          echo "Deployed this run: $SERVICES"
           echo "======================================"
-
-          kubectl -n $NAMESPACE get deployments -o wide
-
-          echo ""
-          echo "======================================"
-          echo "Pods"
-          echo "======================================"
-
-          kubectl -n $NAMESPACE get pods -o wide
-
-          echo ""
-          echo "======================================"
-          echo "Images"
-          echo "======================================"
-
           kubectl -n $NAMESPACE get deployments \
             -o custom-columns=NAME:.metadata.name,IMAGE:.spec.template.spec.containers[0].image
+          echo ""
+          kubectl -n $NAMESPACE get pods -o wide
