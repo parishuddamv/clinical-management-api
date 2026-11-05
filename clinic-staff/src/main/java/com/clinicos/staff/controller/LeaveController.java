@@ -38,21 +38,22 @@ public class LeaveController {
     @PostMapping("/{id}/approve")
     public ResponseEntity<ApiResponse<StaffLeaveDTO>> approveLeave(
             @PathVariable Long id,
-            @RequestParam Long approverId,
+            @RequestParam(required = false) Long approverId,
             Authentication authentication) {
         String clinicId = getClinicId(authentication);
-        StaffLeaveDTO response = leaveService.approveLeave(clinicId, id, approverId);
+        // approverId is optional: when omitted, the approver is the logged-in user (if they are a staff member).
+        StaffLeaveDTO response = leaveService.approveLeave(clinicId, id, approverId, authentication.getName());
         return ResponseEntity.ok(ApiResponse.success("Leave approved", response));
     }
 
     @PostMapping("/{id}/reject")
     public ResponseEntity<ApiResponse<StaffLeaveDTO>> rejectLeave(
             @PathVariable Long id,
-            @RequestParam Long approverId,
+            @RequestParam(required = false) Long approverId,
             @RequestParam(required = false) String reason,
             Authentication authentication) {
         String clinicId = getClinicId(authentication);
-        StaffLeaveDTO response = leaveService.rejectLeave(clinicId, id, approverId, reason);
+        StaffLeaveDTO response = leaveService.rejectLeave(clinicId, id, approverId, authentication.getName(), reason);
         return ResponseEntity.ok(ApiResponse.success("Leave rejected", response));
     }
 
@@ -88,11 +89,14 @@ public class LeaveController {
 
     @GetMapping("/upcoming")
     public ResponseEntity<ApiResponse<List<StaffLeaveDTO>>> getUpcomingLeaves(
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             Authentication authentication) {
         String clinicId = getClinicId(authentication);
-        List<StaffLeaveDTO> leaves = leaveService.getUpcomingLeaves(clinicId, startDate, endDate);
+        // Default window: today through the next 90 days.
+        LocalDate from = startDate != null ? startDate : LocalDate.now();
+        LocalDate to = endDate != null ? endDate : from.plusDays(90);
+        List<StaffLeaveDTO> leaves = leaveService.getUpcomingLeaves(clinicId, from, to);
         return ResponseEntity.ok(ApiResponse.success(leaves));
     }
 

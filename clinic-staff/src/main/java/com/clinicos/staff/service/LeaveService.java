@@ -52,12 +52,11 @@ public class LeaveService {
     }
 
     @Transactional
-    public StaffLeaveDTO approveLeave(String clinicId, Long leaveId, Long approverId) {
+    public StaffLeaveDTO approveLeave(String clinicId, Long leaveId, Long approverId, String approverEmail) {
         StaffLeave leave = leaveRepository.findByIdAndClinicId(leaveId, clinicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Leave not found: " + leaveId));
 
-        StaffMember approver = staffRepository.findByIdAndClinicId(approverId, clinicId)
-                .orElseThrow(() -> new ResourceNotFoundException("Approver not found: " + approverId));
+        StaffMember approver = resolveApprover(clinicId, approverId, approverEmail);
 
         leave.setStatus(LeaveStatus.APPROVED);
         leave.setApprovedBy(approver);
@@ -72,12 +71,12 @@ public class LeaveService {
     }
 
     @Transactional
-    public StaffLeaveDTO rejectLeave(String clinicId, Long leaveId, Long approverId, String reason) {
+    public StaffLeaveDTO rejectLeave(String clinicId, Long leaveId, Long approverId, String approverEmail,
+                                     String reason) {
         StaffLeave leave = leaveRepository.findByIdAndClinicId(leaveId, clinicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Leave not found: " + leaveId));
 
-        StaffMember approver = staffRepository.findByIdAndClinicId(approverId, clinicId)
-                .orElseThrow(() -> new ResourceNotFoundException("Approver not found: " + approverId));
+        StaffMember approver = resolveApprover(clinicId, approverId, approverEmail);
 
         leave.setStatus(LeaveStatus.REJECTED);
         leave.setApprovedBy(approver);
@@ -163,5 +162,22 @@ public class LeaveService {
                 .createdAt(leave.getCreatedAt())
                 .build();
     }
+
+    /**
+     * The approver is the given staff id if provided (must belong to the clinic); otherwise the
+     * logged-in user's staff record. Clinic owners without a staff record approve with no
+     * approver recorded (approved_by is nullable).
+     */
+    private StaffMember resolveApprover(String clinicId, Long approverId, String approverEmail) {
+        if (approverId != null) {
+            return staffRepository.findByIdAndClinicId(approverId, clinicId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Approver not found: " + approverId));
+        }
+        if (approverEmail == null || approverEmail.isBlank()) {
+            return null;
+        }
+        return staffRepository.findByEmailAndClinicId(approverEmail, clinicId).orElse(null);
+    }
+
 }
 
