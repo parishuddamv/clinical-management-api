@@ -1,6 +1,7 @@
 package com.clinicos.staff.service;
 
 import com.clinicos.staff.dto.DoctorScheduleDTO;
+import com.clinicos.staff.dto.ScheduleOverrideDTO;
 import com.clinicos.staff.entity.DoctorSchedule;
 import com.clinicos.staff.entity.ScheduleOverride;
 import com.clinicos.staff.entity.StaffLeave;
@@ -181,6 +182,78 @@ public class ScheduleService {
         override.setClinicId(clinicId);
         overrideRepository.save(override);
         log.info("Added schedule override for staff: {} on: {}", staffId, date);
+    }
+
+    @Transactional
+    public ScheduleOverrideDTO addScheduleOverride(String clinicId, Long staffId, ScheduleOverrideDTO dto) {
+        StaffMember staff = staffRepository.findByIdAndClinicId(staffId, clinicId)
+                .orElseThrow(() -> new ResourceNotFoundException("Staff not found: " + staffId));
+
+        boolean specialHours = dto.getOverrideType() == ScheduleOverride.OverrideType.SPECIAL_HOURS;
+        LocalTime start = specialHours ? dto.getAlternateStartTime() : null;
+        LocalTime end = specialHours ? dto.getAlternateEndTime() : null;
+
+        ScheduleOverride override = ScheduleOverride.builder()
+                .staff(staff)
+                .overrideDate(dto.getOverrideDate())
+                .overrideType(dto.getOverrideType())
+                .startTime(start)
+                .endTime(end)
+                .reason(dto.getReason())
+                .isFullDay(start == null && end == null)
+                .build();
+
+        override.setClinicId(clinicId);
+        ScheduleOverride saved = overrideRepository.save(override);
+        log.info("Added schedule override for staff: {} on: {}", staffId, dto.getOverrideDate());
+        return toOverrideDTO(saved, staffId);
+    }
+
+    /**
+     * Lists overrides for a staff member. Returns an empty list (never null) when there are none.
+     * Defaults to the last 30 days through the next 365 days when no range is given.
+     */
+    @Transactional(readOnly = true)
+    public List<ScheduleOverrideDTO> getScheduleOverrides(String clinicId, Long staffId,
+                                                          LocalDate startDate, LocalDate endDate) {
+        staffRepository.findByIdAndClinicId(staffId, clinicId)
+                .orElseThrow(() -> new ResourceNotFoundException("Staff not found: " + staffId));
+
+        LocalDate from = startDate != null ? startDate : LocalDate.now().minusDays(30);
+        LocalDate to = endDate != null ? endDate : LocalDate.now().plusDays(365);
+        if (to.isBefore(from)) {
+            LocalDate tmp = from;
+            from = to;
+            to = tmp;
+        }
+
+        return overrideRepository
+                .findByStaffIdAndOverrideDateBetweenOrderByOverrideDateAsc(staffId, from, to)
+                .stream()
+                .filter(o -> clinicId.equals(o.getClinicId()))
+                .map(o -> toOverrideDTO(o, staffId))
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public void deleteScheduleOverride(String clinicId, Long overrideId) {
+        ScheduleOverride override = overrideRepository.findByIdAndClinicId(overrideId, clinicId)
+                .orElseThrow(() -> new ResourceNotFoundException("Schedule override not found: " + overrideId));
+        overrideRepository.delete(override);
+        log.info("Deleted schedule override: {}", overrideId);
+    }
+
+    private ScheduleOverrideDTO toOverrideDTO(ScheduleOverride o, Long staffId) {
+        return ScheduleOverrideDTO.builder()
+                .id(o.getId())
+                .staffId(staffId)
+                .overrideDate(o.getOverrideDate())
+                .overrideType(o.getOverrideType())
+                .reason(o.getReason())
+                .alternateStartTime(o.getStartTime())
+                .alternateEndTime(o.getEndTime())
+                .isFullDayOff(o.getIsFullDay() == null || o.getIsFullDay())
+                .build();
     }
 
     private List<Map<String, Object>> generateTimeSlots(LocalTime start, LocalTime end, int durationMinutes,
