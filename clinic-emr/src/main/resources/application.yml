@@ -58,6 +58,17 @@ app:
   services:
     notification-url: ${SERVICE_NOTIFICATION_URL:http://localhost:8084}
 
+# AI assistant (patient summary). Off unless AI_ENABLED=true and ANTHROPIC_API_KEY is set.
+ai:
+  enabled: ${AI_ENABLED:false}
+  model: ${AI_MODEL:claude-haiku-5-5}
+  daily-limit-per-clinic: ${AI_DAILY_LIMIT:200}
+  max-output-tokens: ${AI_MAX_OUTPUT_TOKENS:800}
+  anthropic:
+    api-key: ${ANTHROPIC_API_KEY:}
+    version: ${AI_ANTHROPIC_VERSION:2023-06-01}
+    base-url: ${AI_ANTHROPIC_BASE_URL:https://api.anthropic.com}
+
 logging:
   level:
     root: ${LOG_LEVEL:WARN}
