@@ -26,6 +26,9 @@ public class GlobalExceptionHandler {
             org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class,
             org.springframework.web.bind.MissingServletRequestParameterException.class})
     public ResponseEntity<ApiResponse<?>> handleMalformedRequest(Exception ex) {
+        // Log why the request was rejected so 400s can be diagnosed from the service logs.
+        org.slf4j.LoggerFactory.getLogger(GlobalExceptionHandler.class)
+                .warn("Rejected malformed request: {}", ex.getMessage());
         return ResponseEntity.badRequest().body(ApiResponse.error("Invalid request body or parameters."));
     }
 
