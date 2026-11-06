@@ -46,7 +46,8 @@ class PatientSummaryServiceTest {
                         .visitId(31L).visitDate("2026-10-12").doctorName("Dr. Asha Rao").chiefComplaint("Fever 3 days").build()))
                 .chronicConditions(List.of(DiagnosisResponse.builder().diagnosisName("Type 2 diabetes").isChronic(true)
                         .onsetDate(LocalDate.of(2024, 5, 1)).build()))
-                .latestVitals(VitalSignsResponse.builder().id(5L).patientId(9L).bloodPressure("160/100")
+                .latestVitals(VitalSignsResponse.builder().id(5L).patientId(9L)
+                        .bloodPressureSystolic(160).bloodPressureDiastolic(100)
                         .recordedBy("nurse@clinic.in").recordedAt(LocalDateTime.of(2026, 10, 12, 10, 0)).build())
                 .build();
     }
